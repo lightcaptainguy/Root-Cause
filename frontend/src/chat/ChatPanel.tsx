@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n';
 // ChatPanel — explanation-only chat with local conversational history.
 
 import { useState, useRef, useEffect, useCallback } from 'react';
@@ -30,6 +31,7 @@ const SUGGESTED_QUESTIONS = [
 let messageIdCounter = 0;
 
 export function ChatPanel({ zoneId, observationId, onOpenEvidence }: ChatPanelProps) {
+  const { t, language } = useI18n();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isPending, setIsPending] = useState(false);
@@ -43,13 +45,13 @@ export function ChatPanel({ zoneId, observationId, onOpenEvidence }: ChatPanelPr
   // Update context label
   useEffect(() => {
     if (observationId) {
-      setContextLabel(`Observation: ${observationId}`);
+      setContextLabel(`${t('observation')}: ${observationId}`);
     } else if (zoneId) {
-      setContextLabel(`Zone: ${zoneId}`);
+      setContextLabel(`${t('Zone')}: ${zoneId}`);
     } else {
       setContextLabel('');
     }
-  }, [zoneId, observationId]);
+  }, [zoneId, observationId, language]);
 
   // Abort pending request and start fresh conversation on context change
   useEffect(() => {
@@ -65,7 +67,7 @@ export function ChatPanel({ zoneId, observationId, onOpenEvidence }: ChatPanelPr
       abortControllerRef.current?.abort();
       abortControllerRef.current = null;
     };
-  }, [zoneId, observationId]);
+  }, [zoneId, observationId, language]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -97,12 +99,14 @@ export function ChatPanel({ zoneId, observationId, onOpenEvidence }: ChatPanelPr
         const response = isFixtureMode()
           ? await fixtureSendChat({
               message: text.trim(),
+              language,
               zone_id: zoneId ?? undefined,
               observation_id: observationId ?? undefined,
               conversation_id: conversationIdRef.current ?? undefined,
             })
           : await sendChat({
               message: text.trim(),
+              language,
               zone_id: zoneId ?? undefined,
               observation_id: observationId ?? undefined,
               conversation_id: conversationIdRef.current ?? undefined,
@@ -124,7 +128,7 @@ export function ChatPanel({ zoneId, observationId, onOpenEvidence }: ChatPanelPr
         setMessages((prev) => [...prev, assistantMessage]);
       } catch (err: unknown) {
         if (controller.signal.aborted || abortControllerRef.current !== controller) return;
-        const errorMsg = err instanceof ApiRequestError ? err.message : 'Failed to send message';
+        const errorMsg = err instanceof ApiRequestError ? err.message : t('Failed to send message');
         setError(errorMsg);
 
         const assistantErrorMessage: ChatMessage = {
@@ -144,7 +148,7 @@ export function ChatPanel({ zoneId, observationId, onOpenEvidence }: ChatPanelPr
         }
       }
     },
-    [isPending, zoneId, observationId],
+    [isPending, zoneId, observationId, language],
   );
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -170,23 +174,23 @@ export function ChatPanel({ zoneId, observationId, onOpenEvidence }: ChatPanelPr
   return (
     <div className="chat-panel">
       <div className="chat-panel__header">
-        <h3>Ask about this observation</h3>
+        <h3>{t("Ask about this observation")}</h3>
         {contextLabel && <span className="chat-panel__context">{contextLabel}</span>}
       </div>
 
       <div className="chat-panel__messages">
         {messages.length === 0 && (
           <div className="chat-panel__empty">
-            <p>Ask a question to get started.</p>
+            <p>{t("Ask a question to get started.")}</p>
             <div className="chat-panel__suggestions">
               {SUGGESTED_QUESTIONS.map((q) => (
                 <button
                   key={q}
                   className="chat-panel__suggestion"
-                  onClick={() => sendMessage(q)}
+                  onClick={() => sendMessage(t(q))}
                   disabled={isPending}
                 >
-                  {q}
+                  {t(q)}
                 </button>
               ))}
             </div>
@@ -197,9 +201,9 @@ export function ChatPanel({ zoneId, observationId, onOpenEvidence }: ChatPanelPr
           <div key={msg.id} className={`chat-panel__message chat-panel__message--${msg.role}`}>
             {msg.isError ? (
               <div className="chat-panel__error">
-                <p role="alert">{msg.errorText ?? error}</p>
+                <p role="alert">{t(msg.errorText ?? error ?? "unknown error")}</p>
                 <button onClick={handleRetry} className="chat-panel__retry">
-                  Retry
+                  {t("Retry")}
                 </button>
               </div>
             ) : (
@@ -209,7 +213,7 @@ export function ChatPanel({ zoneId, observationId, onOpenEvidence }: ChatPanelPr
                   <div className="chat-panel__limitations">
                     {msg.limitations.map((lim, i) => (
                       <span key={i} className="chat-panel__limitation">
-                        {lim}
+                        {t(lim)}
                       </span>
                     ))}
                   </div>
@@ -222,7 +226,7 @@ export function ChatPanel({ zoneId, observationId, onOpenEvidence }: ChatPanelPr
                         className="chat-panel__evidence-chip"
                         onClick={() => onOpenEvidence(ev)}
                       >
-                        {ev.kind}: {ev.title}
+                        {t(ev.kind)}: {t(ev.title)}
                       </button>
                     ))}
                   </div>
@@ -240,13 +244,13 @@ export function ChatPanel({ zoneId, observationId, onOpenEvidence }: ChatPanelPr
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask a question..."
-          aria-label="Question for local AI"
+          placeholder={t("Ask a question...")}
+          aria-label={t("Question for local AI")}
           disabled={isPending}
           className="chat-panel__input"
         />
         <button type="submit" disabled={isPending || !input.trim()} className="chat-panel__send">
-          {isPending ? '...' : 'Send'}
+          {isPending ? '...' : t('Send')}
         </button>
       </form>
     </div>

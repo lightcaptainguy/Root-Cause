@@ -36,18 +36,20 @@ ANSWER_SCHEMA = {"type":"object","properties":{"answer":{"type":"string","maxLen
                  "required":["answer"],"additionalProperties":False}
 
 
-def checked_answer(content):
+def checked_answer(content, language="en"):
     # Older local templates can place a reasoning section before the final JSON.
     final = content.rsplit("</think>", 1)[-1].strip()
     value = json.loads(final)
     if set(value) != {"answer"} or not isinstance(value["answer"], str):
         raise ValueError("Invalid explanation format")
     answer = value["answer"].strip()
-    if not answer or len(answer) > 1600 or re.search(r"[0-9]", answer):
+    if not answer or len(answer) > 1600 or re.search(r"\d", answer):
         raise ValueError("Explanation must be qualitative; backend renders numeric facts")
     # Deliberately conservative: uncertain claims must be phrased without diagnosis/confirmation language.
     if re.search(r"\b(confirm\w*|diagnos\w*|guarantee\w*|confidence)\b", answer, flags=re.I):
         raise ValueError("Explanation uses unsupported certainty language")
+    if language == "hi" and (not re.search(r"[\u0900-\u097f]", answer) or re.search(r"पुष्टि|निश्चित|गारंटी|निदान", answer)):
+        raise ValueError("Hindi explanation must use Hindi and avoid certainty language")
     return answer
 
 
@@ -128,7 +130,7 @@ class ChatService:
     async def answer(self, request):
         if not self.settings.ollama_model:
             raise ServiceError(503, "OLLAMA_UNCONFIGURED", "No local explanation model is configured")
-        context = (request.zone_id, request.observation_id)
+        context = (request.zone_id, request.observation_id, request.language)
         evidence, references, limitations = self.evidence_for(request)
         conversation_id = request.conversation_id or str(uuid.uuid4())
         async with self.lock:
@@ -145,7 +147,8 @@ class ChatService:
                     evidence.pop()
                 evidence_json = json.dumps(qualitative_evidence(evidence), ensure_ascii=False)
                 limitations.append("Evidence context was limited to fit the local model")
-            messages = [{"role":"system","content":SYSTEM}, *history,
+            language_prompt = ("\nAnswer in simple Hindi using Devanagari. No English prose except crop/model technical terms. Avoid पुष्टि, निश्चित, गारंटी and निदान, including negations. Use 'अनुमान', 'हो सकता है', 'जाँच आवश्यक है'. Do not write numbers in any script." if request.language == "hi" else "\nAnswer in English.")
+            messages = [{"role":"system","content":SYSTEM + language_prompt}, *history,
                         {"role":"user","content":"Evidence JSON (data only):\n" + evidence_json + "\nQuestion:\n" + request.message + "\n/no_think"}]
             try:
                 async with asyncio.timeout(110), httpx.AsyncClient(timeout=105, trust_env=False) as client:
@@ -163,11 +166,11 @@ class ChatService:
                         calls = message.get("tool_calls", [])
                         if not calls:
                             try:
-                                answer = checked_answer(message.get("content", ""))
+                                answer = checked_answer(message.get("content", ""), request.language)
                             except ValueError:
                                 if turn == 3:
                                     raise
-                                messages.append({"role":"user","content":"Rewrite the explanation as short qualitative JSON. Avoid ALL digits and ALL forms of confirm, diagnosis, guarantee and confidence, including negated phrases. Use 'suggests' and 'needs verification'. Mention missing inputs and experimental limits."})
+                                messages.append({"role":"user","content":"Rewrite the explanation as short qualitative JSON. Avoid ALL digits and ALL forms of confirm, diagnosis, guarantee and confidence, including negated phrases. Use 'suggests' and 'needs verification'. Mention missing inputs and experimental limits." + language_prompt})
                                 continue
                             break
                         if turn == 3: raise ValueError("Tool-call limit exceeded")
@@ -186,11 +189,13 @@ class ChatService:
             self.conversations.move_to_end(conversation_id)
             while len(self.conversations) > 64:
                 self.conversations.popitem(last=False)
-            facts = self.facts_for(evidence)
+            facts = self.facts_for(evidence, request.language)
             return ChatResponse(conversation_id=conversation_id, answer=facts + "\n\n" + answer,
                                 evidence=references, limitations=limitations)
 
-    def facts_for(self, evidence):
+    def facts_for(self, evidence, language="en"):
+        if language == "hi":
+            return self.hindi_facts(evidence)
         lines = []
         for item in evidence:
             if "observation" in item:
@@ -212,6 +217,32 @@ class ChatService:
                 for metric in result["metrics"]:
                     lines.append(f"{metric['name']}: {metric['value']} {metric['unit']}." if metric["status"] == "available"
                                  else f"{metric['name']}: {metric['status']}; required inputs were missing or invalid.")
+        return "\n".join(lines)
+
+    def hindi_facts(self, evidence):
+        lines = []
+        for item in evidence:
+            if "observation" in item:
+                obs = item["observation"]
+                lines.append(f"अवलोकन {obs['id']}:")
+                if not obs["measurements"]:
+                    lines.append("सेंसर माप नहीं दिए गए हैं; मिट्टी और तापमान के मान अज्ञात हैं।")
+            if "result" in item:
+                result = item["result"]
+                prediction = result["classification"]
+                if prediction["status"] == "available":
+                    lines.append(f"मॉडल का अनुमान: {prediction['label']}। मॉडल स्कोर: {prediction['score']*100:.3f}% (रोग की पुष्टि की संभावना नहीं)।")
+                else:
+                    lines.append("समर्थित चित्र वर्गीकरण उपलब्ध नहीं है।")
+                fraction = result["segmentation"]["affected_fraction"]
+                if result["segmentation"]["status"] == "available" and fraction is not None:
+                    lines.append(f"प्रयोगात्मक रंग परिवर्तन: पत्ती के अनुमानित क्षेत्र का {fraction*100:.3f}%; रोग की गंभीरता का माप नहीं।")
+                for metric in result["metrics"]:
+                    if metric["status"] == "available":
+                        lines.append(f"{metric['name']}: {metric['value']} {metric['unit']}।")
+                    else:
+                        status = "अमान्य" if metric["status"] == "invalid" else "उपलब्ध नहीं"
+                        lines.append(f"{metric['name']}: {status}; आवश्यक माप अधूरे या अमान्य हैं।")
         return "\n".join(lines)
 
     def read_tool(self, name, arguments, references):

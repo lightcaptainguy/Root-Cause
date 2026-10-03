@@ -46,5 +46,5 @@ export interface EvidenceItem {
   kind: 'observation' | 'result' | 'reference' | 'formula'; id: string; title: string;
   observation_id: string | null; result_id: string | null;
 }
-export interface ChatRequest { message: string; zone_id?: string; observation_id?: string; conversation_id?: string }
+export interface ChatRequest { message: string; language?: 'en' | 'hi'; zone_id?: string; observation_id?: string; conversation_id?: string }
 export interface ChatResponse { conversation_id: string; answer: string; evidence: EvidenceItem[]; limitations: string[] }

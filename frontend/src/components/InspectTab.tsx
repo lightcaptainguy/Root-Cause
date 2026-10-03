@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n';
 import { useEffect, useState } from "react";
 import type { AnalysisResult, ImportInput, Observation, Zone } from "../types";
 import { ApiError } from "../types";
@@ -19,15 +20,16 @@ export function InspectTab({
   onImport: (input: ImportInput) => Promise<void>;
   onAnalyze: (id: string) => Promise<void>;
 }) {
+  const { t } = useI18n();
   return (
     <div className="inspect">
       <details className="import-panel">
-        <summary>Import a new image</summary>
+        <summary>{t("Import a new image")}</summary>
         <ImportForm zones={zones} defaultZoneId={defaultZoneId} onImport={onImport} />
       </details>
 
       {observation == null ? (
-        <p className="empty">Select an observation from the history panel, or import a new image.</p>
+        <p className="empty">{t("Select an observation from the history panel, or import a new image.")}</p>
       ) : (
         <ObservationDetail key={observation.id} observation={observation} onAnalyze={onAnalyze} />
       )}
@@ -44,6 +46,7 @@ function ImportForm({
   defaultZoneId: string;
   onImport: (input: ImportInput) => Promise<void>;
 }) {
+  const { t } = useI18n();
   const [file, setFile] = useState<File | null>(null);
   const [zoneId, setZoneId] = useState(defaultZoneId);
   const [imageKind, setImageKind] = useState<(typeof KINDS)[number]>("closeup_leaf");
@@ -58,14 +61,14 @@ function ImportForm({
 
   const validate = (): string[] => {
     const errs: string[] = [];
-    if (!file) errs.push("Image file is required.");
-    else if (!/\.(jpe?g|png)$/i.test(file.name) && !/^image\/(jpeg|png)$/.test(file.type)) errs.push("Only JPEG or PNG images are accepted.");
-    if (!zoneId) errs.push("Zone is required.");
+    if (!file) errs.push(t("Image file is required."));
+    else if (!/\.(jpe?g|png)$/i.test(file.name) && !/^image\/(jpeg|png)$/.test(file.type)) errs.push(t("Only JPEG or PNG images are accepted."));
+    if (!zoneId) errs.push(t("Zone is required."));
     if (metadataJson.trim()) {
       try {
         const parsed = JSON.parse(metadataJson);
-        if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) errs.push("Metadata JSON must be an object (key/value pairs).");
-        else if ("measurements" in parsed && !Array.isArray(parsed.measurements)) errs.push("metadata.measurements must be a list when present.");
+        if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) errs.push(t("Metadata JSON must be an object (key/value pairs)."));
+        else if ("measurements" in parsed && !Array.isArray(parsed.measurements)) errs.push(t("metadata.measurements must be a list when present."));
       } catch (e) {
         errs.push(`Metadata JSON is not valid JSON: ${e instanceof Error ? e.message : "parse error"}`);
       }
@@ -89,7 +92,7 @@ function ImportForm({
       } else if (err instanceof ApiError) {
         setErrors([err.message, ...(err.details ?? [])]);
       } else {
-        setErrors(["Import failed unexpectedly."]);
+        setErrors([t("Import failed unexpectedly.")]);
       }
     } finally {
       setBusy(false);
@@ -101,49 +104,49 @@ function ImportForm({
       <div aria-live="assertive">
         {errors.length > 0 && (
           <ul className="form-errors" role="alert">
-            {errors.map((e) => <li key={e}>{e}</li>)}
+            {errors.map((e) => <li key={e}>{t(e)}</li>)}
           </ul>
         )}
       </div>
 
       <label>
-        Image file (JPEG/PNG only)
+        {t("Image file (JPEG/PNG only)")}
         <input type="file" accept="image/jpeg,image/png" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
       </label>
       <label>
-        Zone
+        {t("Zone")}
         <select value={zoneId} onChange={(e) => setZoneId(e.target.value)}>
-          <option value="">Select a zone…</option>
+          <option value="">{t("Select a zone\u2026")}</option>
           {zones.map((z) => <option key={z.id} value={z.id}>{z.name}</option>)}
         </select>
       </label>
       <label>
-        Image kind
+        {t("Image kind")}
         <select value={imageKind} onChange={(e) => setImageKind(e.target.value as (typeof KINDS)[number])}>
-          {KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
+          {KINDS.map((k) => <option key={k} value={k}>{t(k)}</option>)}
         </select>
       </label>
       <label>
-        Known crop (optional)
-        <input type="text" value={crop} onChange={(e) => setCrop(e.target.value)} placeholder="e.g. tomato" />
+        {t("Known crop (optional)")}
+        <input type="text" value={crop} onChange={(e) => setCrop(e.target.value)} placeholder={t("e.g. tomato")} />
       </label>
       <label>
-        Actual capture timestamp (optional — never auto-filled)
+        {t("Actual capture timestamp (optional \u2014 never auto-filled)")}
         <input type="datetime-local" value={capturedAt} onChange={(e) => setCapturedAt(e.target.value)} />
       </label>
       <label>
-        Source kind
+        {t("Source kind")}
         <select value={source} onChange={(e) => setSource(e.target.value)}>
-          {["user_supplied", "dataset", "recorded", "live", "simulated"].map(kind => <option key={kind}>{kind}</option>)}
+          {["user_supplied", "dataset", "recorded", "live", "simulated"].map(kind => <option key={kind} value={kind}>{t(kind)}</option>)}
         </select>
-        <small>Default is "user_supplied". Do not label as a dataset automatically.</small>
+        <small>{t("Default is \"user_supplied\". Do not label as a dataset automatically.")}</small>
       </label>
       <label>
-        Notes
+        {t("Notes")}
         <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
       </label>
       <label>
-        Metadata JSON (optional; may supply measurements)
+        {t("Metadata JSON (optional; may supply measurements)")}
         <textarea
           value={metadataJson}
           onChange={(e) => setMetadataJson(e.target.value)}
@@ -151,9 +154,9 @@ function ImportForm({
           placeholder={'{"measurements": [{"name": "soil_ph", "value": null, "unit": "pH", "measured_at": null, "source": {"kind": "recorded", "name": null, "reference": null}, "quality": "missing"}]}'}
           aria-describedby="metadata-help"
         />
-        <small id="metadata-help">Soil and other values are only taken from what you enter here; they are never auto-filled.</small>
+        <small id="metadata-help">{t("Soil and other values are only taken from what you enter here; they are never auto-filled.")}</small>
       </label>
-      <button type="submit" disabled={busy}>{busy ? "Importing…" : "Import"}</button>
+      <button type="submit" disabled={busy}>{busy ? t("Importing…") : t("Import")}</button>
     </form>
   );
 }
@@ -165,6 +168,7 @@ function ObservationDetail({
   observation: Observation;
   onAnalyze: (id: string) => Promise<void>;
 }) {
+  const { t } = useI18n();
   const [jobError, setJobError] = useState<string | null>(null);
   const busy = observation.job === "queued" || observation.job === "running";
 
@@ -176,7 +180,7 @@ function ObservationDetail({
       if (err instanceof ApiError || err instanceof ApiRequestError) {
         setJobError(err.message);
       } else {
-        setJobError("Could not start analysis.");
+        setJobError(t("Could not start analysis."));
       }
     }
   };
@@ -186,15 +190,15 @@ function ObservationDetail({
       <Viewer observation={observation} />
 
       <div className="analyze-row">
-        <button onClick={analyze} disabled={busy}>Analyze</button>
+        <button onClick={analyze} disabled={busy}>{t("Analyze")}</button>
         <p aria-live="polite" className="job-status">
-          Job status: {observation.job ? observation.job : "not started"}
+          {t("Job status:")} {observation.job ? t(observation.job) : t("not started")}
           {observation.error ? ` — ${observation.error}` : ""}
         </p>
-        {jobError && <p role="alert" className="job-error">{jobError}</p>}
+        {jobError && <p role="alert" className="job-error">{t(jobError)}</p>}
       </div>
 
-      {observation.job === "failed" && <p role="alert" className="job-error">Analysis failed: {observation.error ?? "unknown error"} <button onClick={analyze}>Retry</button></p>}
+      {observation.job === "failed" && <p role="alert" className="job-error">{t("Analysis failed:")} {observation.error ?? t("unknown error")} <button onClick={analyze}>{t("Retry")}</button></p>}
 
       {observation.result && <Results result={observation.result} />}
     </div>
@@ -202,75 +206,76 @@ function ObservationDetail({
 }
 
 function Results({ result }: { result: AnalysisResult }) {
+  const { t, locale } = useI18n();
   return (
     <div className="results">
-      <h3>Classification</h3>
+      <h3>{t("Classification")}</h3>
       <dl className="card">
-        <div><dt>Crop</dt><dd>{result.crop ?? "Unavailable"}</dd></div>
-        <div><dt>Predicted label</dt><dd>{result.predictedLabel ?? "Unavailable"}</dd></div>
+        <div><dt>{t("Crop")}</dt><dd>{t(result.crop ?? "Unavailable")}</dd></div>
+        <div><dt>{t("Predicted label")}</dt><dd>{t(result.predictedLabel ?? "Unavailable")}</dd></div>
         <div>
-          <dt>Model score</dt>
-          <dd>{result.score != null ? `${Math.round(result.score * 100)}%` : "Unavailable"}</dd>
+          <dt>{t("Model score")}</dt>
+          <dd>{result.score != null ? `${Math.round(result.score * 100)}%` : t("Unavailable")}</dd>
         </div>
-        <div><dt>Model ID</dt><dd>{result.modelId ?? "Unavailable"}</dd></div>
+        <div><dt>{t("Model ID")}</dt><dd>{result.modelId ?? t("Unavailable")}</dd></div>
       </dl>
       <p className="meta">
-        Capture time: {result.capturedAt ? new Date(result.capturedAt).toLocaleString() : "unknown"}
-        {" · "}Received time: {new Date(result.receivedAt).toLocaleString()}
+        {t("Capture time:")} {result.capturedAt ? new Date(result.capturedAt).toLocaleString(locale) : t("unknown")}
+        {" · "}{t("Received time:")} {new Date(result.receivedAt).toLocaleString(locale)}
         {result.affectedFraction && (
-          <> · Experimental discoloration: {(result.affectedFraction.value * 100).toFixed(3)}% of {result.affectedFraction.denominator === "leaf_area" ? "estimated leaf region" : "image area"}; not disease severity.</>
+          <> · {t("Experimental discoloration:")} {(result.affectedFraction.value * 100).toFixed(3)}{t("% of")} {result.affectedFraction.denominator === "leaf_area" ? t("estimated leaf region") : t("image area")}{t("; not disease severity.")}</>
         )}
       </p>
 
-      <h3>Measurements</h3>
+      <h3>{t("Measurements")}</h3>
       <table>
         <thead>
-          <tr><th>Measurement</th><th>Value</th><th>Unit</th><th>Source</th><th>Measurement time</th><th>Quality</th></tr>
+          <tr><th>{t("Measurement")}</th><th>{t("Value")}</th><th>{t("Unit")}</th><th>{t("Source")}</th><th>{t("Measurement time")}</th><th>{t("Quality")}</th></tr>
         </thead>
         <tbody>
           {result.measurements.map((m) => (
             <tr key={m.key}>
-              <td>{m.label}</td>
-              <td>{m.value ?? "—"} {m.value == null && <span className="missing-label">Missing</span>}</td>
+              <td>{t(m.label)}</td>
+              <td>{m.value ?? "—"} {m.value == null && <span className="missing-label">{t("Missing")}</span>}</td>
               <td>{m.unit ?? "—"}</td>
-              <td>{m.source}</td>
-              <td>{m.measuredAt ? new Date(m.measuredAt).toLocaleString() : "—"}</td>
-              <td>{m.quality === "missing" ? "Missing" : m.quality}</td>
+              <td>{t(m.source)}</td>
+              <td>{m.measuredAt ? new Date(m.measuredAt).toLocaleString(locale) : "—"}</td>
+              <td>{m.quality === "missing" ? t("Missing") : t(m.quality)}</td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      <h3>Derived outputs</h3>
+      <h3>{t("Derived outputs")}</h3>
       <table>
-        <thead><tr><th>Output</th><th>Formula</th><th>Version</th><th>Value</th><th>Unit</th></tr></thead>
+        <thead><tr><th>{t("Output")}</th><th>{t("Formula")}</th><th>{t("Version")}</th><th>{t("Value")}</th><th>{t("Unit")}</th></tr></thead>
         <tbody>
           {result.formulaOutputs.map((f) => (
             <tr key={f.name}>
               <td>{f.name}</td>
-              <td>{f.formula ?? "Unavailable"}</td>
-              <td>{f.version ?? "Unavailable"}</td>
-              <td>{f.value ?? f.status ?? "Unavailable"}</td>
+              <td>{f.formula ?? t("Unavailable")}</td>
+              <td>{f.version ?? t("Unavailable")}</td>
+              <td>{f.value ?? t(f.status ?? "Unavailable")}</td>
               <td>{f.unit ?? "—"}</td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      <h3>Metrics</h3>
-      <ul>{result.metrics.map((m) => <li key={m.label}><strong>{m.label}:</strong> {m.value}</li>)}</ul>
+      <h3>{t("Metrics")}</h3>
+      <ul>{result.metrics.map((m) => <li key={m.label}><strong>{t(m.label)}:</strong> {t(m.value)}</li>)}</ul>
 
-      <h3>Limitations</h3>
-      <ul>{result.limitations.map((l) => <li key={l}>{l}</li>)}</ul>
+      <h3>{t("Limitations")}</h3>
+      <ul>{result.limitations.map((l) => <li key={l}>{t(l)}</li>)}</ul>
 
       <details className="evidence">
-        <summary>Evidence details</summary>
+        <summary>{t("Evidence details")}</summary>
         <dl>
-          <div><dt>Model ID</dt><dd>{result.evidence.modelId ?? "Unavailable"}</dd></div>
-          <div><dt>Model version</dt><dd>{result.evidence.modelVersion ?? "Unavailable"}</dd></div>
-          <div><dt>Localization method</dt><dd>{result.evidence.localizationMethod}</dd></div>
-          <div><dt>Segmentation method</dt><dd>{result.evidence.segmentationMethod ?? "Segmentation unavailable"}</dd></div>
-          <div><dt>Notes</dt><dd>{result.evidence.notes}</dd></div>
+          <div><dt>{t("Model ID")}</dt><dd>{result.evidence.modelId ?? t("Unavailable")}</dd></div>
+          <div><dt>{t("Model version")}</dt><dd>{result.evidence.modelVersion ?? t("Unavailable")}</dd></div>
+          <div><dt>{t("Localization method")}</dt><dd>{result.evidence.localizationMethod}</dd></div>
+          <div><dt>{t("Segmentation method")}</dt><dd>{result.evidence.segmentationMethod ?? t("Segmentation unavailable")}</dd></div>
+          <div><dt>{t("Notes")}</dt><dd>{t(result.evidence.notes)}</dd></div>
         </dl>
       </details>
     </div>

@@ -109,10 +109,15 @@ export async function fixtureFetchResult(resultId: string): Promise<AnalysisResu
 
 export async function fixtureSendChat(req: ChatRequest): Promise<ChatResponse> {
   await delay(200);
-  return createFixtureChatResponse(
+  const response = createFixtureChatResponse(
     req.message,
     req.zone_id ?? null,
     req.observation_id ?? null,
     req.conversation_id || `conv-${Date.now()}`,
   );
+  if (req.language === 'hi') {
+    response.answer = 'यह सिमुलेटेड विकास उदाहरण है; स्थानीय AI ने विश्लेषण नहीं किया। प्रश्न: ' + req.message;
+    response.limitations = ['सिमुलेटेड डेटा; वास्तविक सेंसर माप नहीं।'];
+  }
+  return response;
 }

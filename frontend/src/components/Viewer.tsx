@@ -1,7 +1,9 @@
+import { useI18n } from '../i18n';
 import { useEffect, useRef, useState } from "react";
 import type { Observation } from "../types";
 
 export function Viewer({ observation }: { observation: Observation }) {
+  const { t } = useI18n();
   const [showBox, setShowBox] = useState(true);
   const [showMask, setShowMask] = useState(true);
   const [fitPanel, setFitPanel] = useState(true);
@@ -23,22 +25,22 @@ export function Viewer({ observation }: { observation: Observation }) {
   }, [observation.id]);
 
   return (
-    <section className="viewer" aria-label="Image viewer">
+    <section className="viewer" aria-label={t("Image viewer")}>
       <div className="viewer-controls">
         <button aria-pressed={showBox} disabled={!boxAvailable} onClick={() => setShowBox((v) => !v)}>
-          Leaf box
+          {t("Leaf box")}
         </button>
         <button aria-pressed={showMask} disabled={!maskAvailable} onClick={() => setShowMask((v) => !v)}>
-          Discoloration overlay
+          {t("Discoloration overlay")}
         </button>
         <button onClick={() => setFitPanel((v) => !v)} aria-pressed={fitPanel}>
-          {fitPanel ? "Fit: panel" : "Fit: natural"}
+          {fitPanel ? t("Fit: panel") : t("Fit: natural")}
         </button>
       </div>
       <p className="viewer-methods">
-        <span>Leaf box method: {geometry?.boxMethod ?? "unavailable"}{boxAvailable ? "" : " (no box provided)"}</span>
+        <span>{t("Leaf box method:")} {geometry?.boxMethod ?? t("unavailable")}{boxAvailable ? "" : t(" (no box provided)")}</span>
         <br />
-        <span>Overlay method: {geometry?.maskMethod ?? "Segmentation unavailable"}</span>
+        <span>{t("Overlay method:")} {geometry?.maskMethod ?? t("Segmentation unavailable")}</span>
       </p>
 
       <div className="image-frame">
@@ -46,7 +48,7 @@ export function Viewer({ observation }: { observation: Observation }) {
           <img
             ref={imgRef}
             src={observation.imageUrl}
-            alt={`Crop image ${observation.id}, kind ${observation.imageKind}`}
+            alt={`${t('Image kind')}: ${t(observation.imageKind)} · ${observation.id}`}
             onLoad={(e) => setNatural({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
             style={fitPanel ? { maxHeight: "55vh", width: "auto" } : undefined}
           />
@@ -76,7 +78,7 @@ export function Viewer({ observation }: { observation: Observation }) {
         </div>
       </div>
       <p className="viewer-meta">
-        Dimensions: {dims ? `${dims.w} × ${dims.h} px` : "loading…"} · Source: {observation.source} · Kind: {observation.imageKind}
+        {t("Dimensions:")} {dims ? `${dims.w} × ${dims.h} px` : t("loading…")} · {t("Source:")} {t(observation.source)} · {t("Kind:")} {t(observation.imageKind)}
       </p>
     </section>
   );

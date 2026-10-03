@@ -290,6 +290,7 @@ class EvidenceItem(WireModel):
 
 class ChatRequest(WireModel):
     message: Annotated[str, Field(min_length=1, max_length=4000)]
+    language: Literal["en", "hi"] = "en"
     zone_id: Identifier | None = None
     observation_id: Identifier | None = None
     conversation_id: Identifier | None = None

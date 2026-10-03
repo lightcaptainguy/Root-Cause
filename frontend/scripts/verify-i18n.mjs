@@ -1,0 +1,18 @@
+import {build} from 'esbuild';
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+const compiled=await build({stdin:{contents:`export {translate,LanguageProvider} from './src/i18n'; export {InspectTab} from './src/components/InspectTab'; export {createElement} from 'react'; export {renderToStaticMarkup} from 'react-dom/server';`,resolveDir:process.cwd(),loader:'tsx'},bundle:true,write:false,format:'cjs',platform:'node',define:{'import.meta.env':JSON.stringify({})}});
+const bundled={exports:{}};
+new Function('require','module','exports',compiled.outputFiles[0].text)(createRequire(import.meta.url),bundled,bundled.exports);
+const {translate,LanguageProvider,InspectTab,createElement,renderToStaticMarkup}=bundled.exports;
+assert.equal(translate('Inspect','hi'),'जाँचें');
+assert.equal(translate('Inspect','en'),'Inspect');
+assert.equal(translate('original-record-id','hi'),'original-record-id');
+assert.equal(translate('simulated · Team source','hi'),'सिमुलेटेड · Team source');
+globalThis.localStorage={getItem:()=> 'hi'};
+const html=renderToStaticMarkup(createElement(LanguageProvider,null,createElement(InspectTab,{zones:[{id:'z',name:'Team zone'}],defaultZoneId:'z',observation:null,onImport:async()=>{},onAnalyze:async()=>{}})));
+assert.ok(html.includes('नया चित्र जोड़ें'));
+assert.ok(html.includes('value="closeup_leaf"'));
+assert.ok(html.includes('value="simulated"'));
+assert.ok(!html.includes('value="सिमुलेटेड"'));
+console.log('Hindi rendering checks passed; wire enums and source identifiers remain unchanged.');

@@ -1457,6 +1457,15 @@
             "minLength": 1,
             "title": "Message"
           },
+          "language": {
+            "type": "string",
+            "enum": [
+              "en",
+              "hi"
+            ],
+            "title": "Language",
+            "default": "en"
+          },
           "zone_id": {
             "anyOf": [
               {

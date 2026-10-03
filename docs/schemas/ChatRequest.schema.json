@@ -7,6 +7,15 @@
       "title": "Message",
       "type": "string"
     },
+    "language": {
+      "default": "en",
+      "enum": [
+        "en",
+        "hi"
+      ],
+      "title": "Language",
+      "type": "string"
+    },
     "zone_id": {
       "anyOf": [
         {

@@ -54,6 +54,8 @@ Verification completed on 2026-10-03:
 
 ## Reviewable commit groups
 
+Hindi accessibility was added in a subsequent pass: persistent English/Hindi selector, document lang, translated dashboard/form/result/attention/chat labels and known limitations, locale-aware dates, preserved wire/data identities, explicit chat language with context reset/cancellation, Hindi deterministic fact formatting and Hindi answer checks. Verified a real Hindi Ollama reply in the browser; build, API checks, Hindi rendering checks and 31 backend tests passed. This can be reviewed as an additional feature commit, including regenerated ChatRequest schema/OpenAPI and tests. It does not add a translation service or change measurements.
+
 1. fix(frontend): align API contracts and request handling — wire contracts, client/index, view adapters, executable API verification and package script.
 2. fix(frontend): connect dashboard workflows to backend — App/main, hook, Inspect/Attention/Viewer/chat components, presentation types and functional chat styles.
 3. fix(frontend): keep development fixtures explicit — fixture data/transport, Vite mode validation/proxy and frontend README.
