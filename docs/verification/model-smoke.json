@@ -1,0 +1,106 @@
+{
+  "warning": "Small dataset smoke test; images may overlap original training data. Not held-out field accuracy.",
+  "provider": [
+    "CPUExecutionProvider"
+  ],
+  "count": 12,
+  "matched": 11,
+  "rows": [
+    {
+      "file": "Tomato___healthy-0.jpg",
+      "expected": "Healthy Tomato Plant",
+      "predicted": "Healthy Tomato Plant",
+      "score": 0.9999587744122684,
+      "matched": true,
+      "elapsed_ms": 8.444899998721667
+    },
+    {
+      "file": "Tomato___healthy-1.jpg",
+      "expected": "Healthy Tomato Plant",
+      "predicted": "Healthy Tomato Plant",
+      "score": 0.9997023272185837,
+      "matched": true,
+      "elapsed_ms": 13.022799999816925
+    },
+    {
+      "file": "Tomato___healthy-2.jpg",
+      "expected": "Healthy Tomato Plant",
+      "predicted": "Healthy Tomato Plant",
+      "score": 0.9997295756429113,
+      "matched": true,
+      "elapsed_ms": 12.06090000050608
+    },
+    {
+      "file": "Tomato___Late_blight-0.jpg",
+      "expected": "Tomato with Late Blight",
+      "predicted": "Tomato with Late Blight",
+      "score": 0.9777411892796254,
+      "matched": true,
+      "elapsed_ms": 10.877500000788132
+    },
+    {
+      "file": "Tomato___Late_blight-1.jpg",
+      "expected": "Tomato with Late Blight",
+      "predicted": "Tomato with Late Blight",
+      "score": 0.9904001259117385,
+      "matched": true,
+      "elapsed_ms": 10.485100001460523
+    },
+    {
+      "file": "Tomato___Late_blight-2.jpg",
+      "expected": "Tomato with Late Blight",
+      "predicted": "Tomato with Late Blight",
+      "score": 0.6720523497513549,
+      "matched": true,
+      "elapsed_ms": 10.80550000006042
+    },
+    {
+      "file": "Potato___Early_blight-0.jpg",
+      "expected": "Potato with Early Blight",
+      "predicted": "Potato with Early Blight",
+      "score": 0.980887946813215,
+      "matched": true,
+      "elapsed_ms": 11.678500000925851
+    },
+    {
+      "file": "Potato___Early_blight-1.jpg",
+      "expected": "Potato with Early Blight",
+      "predicted": "Potato with Early Blight",
+      "score": 0.9986787460287424,
+      "matched": true,
+      "elapsed_ms": 11.521200000061071
+    },
+    {
+      "file": "Potato___Early_blight-2.jpg",
+      "expected": "Potato with Early Blight",
+      "predicted": "Bell Pepper with Bacterial Spot",
+      "score": 0.9118780779693159,
+      "matched": false,
+      "elapsed_ms": 15.732800000478164
+    },
+    {
+      "file": "Apple___Apple_scab-0.jpg",
+      "expected": "Apple Scab",
+      "predicted": "Apple Scab",
+      "score": 0.9978950660566107,
+      "matched": true,
+      "elapsed_ms": 10.130000000572181
+    },
+    {
+      "file": "Apple___Apple_scab-1.jpg",
+      "expected": "Apple Scab",
+      "predicted": "Apple Scab",
+      "score": 0.999932326574897,
+      "matched": true,
+      "elapsed_ms": 15.435499999512103
+    },
+    {
+      "file": "Apple___Apple_scab-2.jpg",
+      "expected": "Apple Scab",
+      "predicted": "Apple Scab",
+      "score": 0.9975700567400474,
+      "matched": true,
+      "elapsed_ms": 13.44750000134809
+    }
+  ]
+}
