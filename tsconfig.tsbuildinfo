@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/types.ts","./src/api/fixtures.ts","./src/api/mockapi.ts","./src/components/attentiontab.tsx","./src/components/chatsidebar.tsx","./src/components/fixturebanner.tsx","./src/components/inspecttab.tsx","./src/components/viewer.tsx"],"version":"5.9.3"}
