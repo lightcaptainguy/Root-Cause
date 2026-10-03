@@ -1,0 +1,161 @@
+{
+  "source": "Explicitly simulated inputs, not field validation",
+  "cases": [
+    {
+      "case": "valid",
+      "observation_id": "0fdbd489-86e0-4e29-9f04-a702a8b02b7c",
+      "result_id": "47a234a3-843b-432f-9868-e2aaca68c3f5",
+      "association": {
+        "status": "associated",
+        "method": "nearest_supplied_timestamp",
+        "deltas_ms": {
+          "canopy_temperature": 0.0,
+          "air_temperature": 0.0,
+          "cwsi_lower_delta": 0.0,
+          "cwsi_upper_delta": 0.0
+        }
+      },
+      "metric": {
+        "name": "CWSI",
+        "value": 0.5,
+        "unit": "index",
+        "formula_id": "cwsi",
+        "formula_version": "spec-v1",
+        "input_refs": [
+          "0fdbd489-86e0-4e29-9f04-a702a8b02b7c:measurement:canopy_temperature",
+          "0fdbd489-86e0-4e29-9f04-a702a8b02b7c:measurement:air_temperature",
+          "0fdbd489-86e0-4e29-9f04-a702a8b02b7c:measurement:cwsi_lower_delta",
+          "0fdbd489-86e0-4e29-9f04-a702a8b02b7c:measurement:cwsi_upper_delta"
+        ],
+        "status": "available"
+      },
+      "expected_status": "available",
+      "expected_value": 0.5,
+      "passed": true
+    },
+    {
+      "case": "warmer_canopy",
+      "observation_id": "f55be738-ca8b-40ca-8096-3fb13898695d",
+      "result_id": "253adce4-cde1-4032-9e38-87478592a07a",
+      "association": {
+        "status": "associated",
+        "method": "nearest_supplied_timestamp",
+        "deltas_ms": {
+          "canopy_temperature": 0.0,
+          "air_temperature": 0.0,
+          "cwsi_lower_delta": 0.0,
+          "cwsi_upper_delta": 0.0
+        }
+      },
+      "metric": {
+        "name": "CWSI",
+        "value": 0.75,
+        "unit": "index",
+        "formula_id": "cwsi",
+        "formula_version": "spec-v1",
+        "input_refs": [
+          "f55be738-ca8b-40ca-8096-3fb13898695d:measurement:canopy_temperature",
+          "f55be738-ca8b-40ca-8096-3fb13898695d:measurement:air_temperature",
+          "f55be738-ca8b-40ca-8096-3fb13898695d:measurement:cwsi_lower_delta",
+          "f55be738-ca8b-40ca-8096-3fb13898695d:measurement:cwsi_upper_delta"
+        ],
+        "status": "available"
+      },
+      "expected_status": "available",
+      "expected_value": 0.75,
+      "passed": true
+    },
+    {
+      "case": "missing_air",
+      "observation_id": "5fa7e95e-1cc5-45ac-bb43-efa83e1752ef",
+      "result_id": "7832dc77-00bb-4565-a0ca-5950b2abf421",
+      "association": {
+        "status": "partial",
+        "method": "nearest_supplied_timestamp",
+        "deltas_ms": {
+          "canopy_temperature": 0.0,
+          "cwsi_lower_delta": 0.0,
+          "cwsi_upper_delta": 0.0
+        }
+      },
+      "metric": {
+        "name": "CWSI",
+        "value": null,
+        "unit": "index",
+        "formula_id": "cwsi",
+        "formula_version": "spec-v1",
+        "input_refs": [
+          "5fa7e95e-1cc5-45ac-bb43-efa83e1752ef:measurement:canopy_temperature",
+          "5fa7e95e-1cc5-45ac-bb43-efa83e1752ef:measurement:cwsi_lower_delta",
+          "5fa7e95e-1cc5-45ac-bb43-efa83e1752ef:measurement:cwsi_upper_delta"
+        ],
+        "status": "unavailable"
+      },
+      "expected_status": "unavailable",
+      "expected_value": null,
+      "passed": true
+    },
+    {
+      "case": "out_of_sync",
+      "observation_id": "c7468533-9b57-4d7b-a26f-ecb195bdc1f1",
+      "result_id": "201858be-1f87-4e21-aba3-054e4440f05d",
+      "association": {
+        "status": "partial",
+        "method": "nearest_supplied_timestamp",
+        "deltas_ms": {
+          "canopy_temperature": 0.0,
+          "cwsi_lower_delta": 0.0,
+          "cwsi_upper_delta": 0.0
+        }
+      },
+      "metric": {
+        "name": "CWSI",
+        "value": null,
+        "unit": "index",
+        "formula_id": "cwsi",
+        "formula_version": "spec-v1",
+        "input_refs": [
+          "c7468533-9b57-4d7b-a26f-ecb195bdc1f1:measurement:canopy_temperature",
+          "c7468533-9b57-4d7b-a26f-ecb195bdc1f1:measurement:cwsi_lower_delta",
+          "c7468533-9b57-4d7b-a26f-ecb195bdc1f1:measurement:cwsi_upper_delta"
+        ],
+        "status": "unavailable"
+      },
+      "expected_status": "unavailable",
+      "expected_value": null,
+      "passed": true
+    },
+    {
+      "case": "invalid_baselines",
+      "observation_id": "a24a0118-eb2b-49c8-9fae-9c1f36f8ce67",
+      "result_id": "9b70cbc2-2263-4855-bc0c-770b6a2896e8",
+      "association": {
+        "status": "associated",
+        "method": "nearest_supplied_timestamp",
+        "deltas_ms": {
+          "canopy_temperature": 0.0,
+          "air_temperature": 0.0,
+          "cwsi_lower_delta": 0.0,
+          "cwsi_upper_delta": 0.0
+        }
+      },
+      "metric": {
+        "name": "CWSI",
+        "value": null,
+        "unit": "index",
+        "formula_id": "cwsi",
+        "formula_version": "spec-v1",
+        "input_refs": [
+          "a24a0118-eb2b-49c8-9fae-9c1f36f8ce67:measurement:canopy_temperature",
+          "a24a0118-eb2b-49c8-9fae-9c1f36f8ce67:measurement:air_temperature",
+          "a24a0118-eb2b-49c8-9fae-9c1f36f8ce67:measurement:cwsi_lower_delta",
+          "a24a0118-eb2b-49c8-9fae-9c1f36f8ce67:measurement:cwsi_upper_delta"
+        ],
+        "status": "invalid"
+      },
+      "expected_status": "invalid",
+      "expected_value": null,
+      "passed": true
+    }
+  ]
+}

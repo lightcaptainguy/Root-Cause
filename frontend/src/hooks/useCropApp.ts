@@ -1,72 +1,18 @@
-// useCropApp — main application state hook.
-// Implements the exact interface from SHARED_FRONTEND_CONTRACT.md.
-
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type {
-  AnalysisJob,
-  AnalysisResult,
-  ApiError,
-  AttentionItem,
-  Health,
-  Observation,
-  ObservationMetadata,
-  RequestState,
-  Zone,
-} from '../types/contracts';
-import {
-  ApiRequestError,
-  fetchHealth,
-  fetchZones,
-  fetchObservations,
-  fetchAttention,
-  importObservation,
-  analyzeObservation,
-  fetchJob,
-  fetchResult,
-} from '../api';
-import {
-  isFixtureMode,
-  fixtureFetchHealth,
-  fixtureFetchZones,
-  fixtureFetchObservations,
-  fixtureFetchAttention,
-  fixtureImportObservation,
-  fixtureAnalyzeObservation,
-  fixtureFetchJob,
-  fixtureFetchResult,
-} from '../fixtures';
-
-const POLL_INTERVAL_MS = 1000;
-const MAX_CONSECUTIVE_FAILURES = 3;
+import type { AnalysisJob, AnalysisResult, ApiError, AttentionItem, Health, Observation, ObservationMetadata, RequestState, Zone } from '../types/contracts';
+import * as api from '../api';
+import * as fixture from '../fixtures';
 
 export interface CropAppState {
-  mode: 'live' | 'fixture';
-  health: Health | null;
-  zones: Zone[];
-  selectedZoneId: string | null;
-  observations: Observation[];
-  selectedObservation: Observation | null;
-  result: AnalysisResult | null;
-  job: AnalysisJob | null;
-  attention: AttentionItem[];
-  loadState: RequestState;
-  uploadState: RequestState;
-  error: ApiError | null;
-  selectZone: (id: string) => void;
-  selectObservation: (id: string) => Promise<void>;
-  importObservation: (image: File, metadata: ObservationMetadata) => Promise<Observation>;
-  analyzeObservation: (id: string) => Promise<void>;
-  refresh: () => Promise<void>;
-  clearError: () => void;
+  mode: 'live' | 'fixture'; health: Health | null; zones: Zone[]; selectedZoneId: string | null;
+  observations: Observation[]; selectedObservation: Observation | null; result: AnalysisResult | null;
+  job: AnalysisJob | null; attention: AttentionItem[]; loadState: RequestState; uploadState: RequestState;
+  error: ApiError | null; selectZone(id: string): void; selectObservation(id: string): Promise<void>;
+  importObservation(image: File, metadata: ObservationMetadata): Promise<Observation>;
+  analyzeObservation(id: string): Promise<void>; refresh(): Promise<void>; clearError(): void;
 }
-
-// Cache job/result IDs per observation during this browser session
-const jobCache = new Map<string, string>();
-const resultCache = new Map<string, string>();
-
 export function useCropApp(): CropAppState {
-  const mode: 'live' | 'fixture' = isFixtureMode() ? 'fixture' : 'live';
-
+  const mode = fixture.isFixtureMode() ? 'fixture' : 'live';
   const [health, setHealth] = useState<Health | null>(null);
   const [zones, setZones] = useState<Zone[]>([]);
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
@@ -78,332 +24,191 @@ export function useCropApp(): CropAppState {
   const [loadState, setLoadState] = useState<RequestState>('idle');
   const [uploadState, setUploadState] = useState<RequestState>('idle');
   const [error, setError] = useState<ApiError | null>(null);
+  const alive = useRef(true);
+  const zoneRef = useRef<string | null>(null);
+  const epoch = useRef(0);
+  const viewController = useRef<AbortController | null>(null);
+  const pollController = useRef<AbortController | null>(null);
+  const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const jobCache = useRef(new Map<string, string>());
+  const submitting = useRef(new Set<string>());
 
-  // Refs for race protection and cancellation
-  const zoneRequestIdRef = useRef(0);
-  const observationRequestIdRef = useRef(0);
-  const pollAbortRef = useRef<AbortController | null>(null);
-  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const consecutiveFailuresRef = useRef(0);
-  const isPollingRef = useRef(false);
-  const activeJobIdRef = useRef<string | null>(null);
-
-  const clearError = useCallback(() => {
-    setError(null);
+  const report = useCallback((err: unknown) => {
+    if (!alive.current || (err instanceof api.ApiRequestError && err.code === 'CANCELLED')) return;
+    setError(err instanceof api.ApiRequestError
+      ? { code: err.code, message: err.message, details: err.details }
+      : { code: 'UNKNOWN', message: err instanceof Error ? err.message : String(err), details: null });
   }, []);
+  const stopPolling = useCallback(() => {
+    if (pollTimer.current) clearTimeout(pollTimer.current);
+    pollTimer.current = null;
+    pollController.current?.abort(); pollController.current = null;
+  }, []);
+  const invalidateView = useCallback(() => {
+    epoch.current++;
+    viewController.current?.abort(); viewController.current = null;
+    stopPolling();
+  }, [stopPolling]);
+  const selectZone = useCallback((id: string) => {
+    if (zoneRef.current === id) return;
+    invalidateView(); zoneRef.current = id; setSelectedZoneId(id);
+    setSelectedObservation(null); setResult(null); setJob(null);
+    setObservations([]); setAttention([]); setError(null);
+  }, [invalidateView]);
 
-  // Fetch health and zones on mount
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      setLoadState('loading');
-      try {
-        const [healthData, zonesData] = await Promise.all([
-          mode === 'fixture' ? fixtureFetchHealth() : fetchHealth(),
-          mode === 'fixture' ? fixtureFetchZones() : fetchZones(),
-        ]);
-        if (cancelled) return;
-        setHealth(healthData);
-        setZones(zonesData);
-        setLoadState('success');
-        consecutiveFailuresRef.current = 0;
-      } catch (err: unknown) {
-        if (cancelled) return;
-        setLoadState('error');
-        if (err instanceof ApiRequestError) {
-          setError({ code: err.code, message: err.message, details: err.details });
-        } else {
-          setError({ code: 'UNKNOWN', message: String(err), details: null });
-        }
-      }
-    }
-
-    load();
-    return () => {
-      cancelled = true;
-    };
+  const reloadZone = useCallback(async (zone: string, signal?: AbortSignal) => {
+    const [obs, att] = await Promise.all([
+      mode === 'fixture' ? fixture.fixtureFetchObservations(zone) : api.fetchObservations(zone, signal),
+      mode === 'fixture' ? fixture.fixtureFetchAttention(zone) : api.fetchAttention(zone, signal),
+    ]);
+    if (!alive.current || signal?.aborted || zoneRef.current !== zone) return;
+    setObservations(obs); setAttention(att);
   }, [mode]);
 
-  // Fetch observations and attention when zone changes
-  useEffect(() => {
-    if (!selectedZoneId) {
-      setObservations([]);
-      setAttention([]);
-      return;
-    }
-
-    const zoneId = selectedZoneId;
-    const requestId = ++zoneRequestIdRef.current;
-    let cancelled = false;
-
-    async function loadZoneData() {
-      setLoadState('loading');
-      try {
-        const [obsData, attData] = await Promise.all([
-          mode === 'fixture' ? fixtureFetchObservations(zoneId) : fetchObservations(zoneId),
-          mode === 'fixture' ? fixtureFetchAttention(zoneId) : fetchAttention(zoneId),
-        ]);
-        if (cancelled || requestId !== zoneRequestIdRef.current) return;
-        setObservations(obsData);
-        setAttention(attData);
-        setLoadState('success');
-        consecutiveFailuresRef.current = 0;
-      } catch (err: unknown) {
-        if (cancelled || requestId !== zoneRequestIdRef.current) return;
-        setLoadState('error');
-        if (err instanceof ApiRequestError) {
-          setError({ code: err.code, message: err.message, details: err.details });
-        } else {
-          setError({ code: 'UNKNOWN', message: String(err), details: null });
-        }
-      }
-    }
-
-    loadZoneData();
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedZoneId, mode]);
-
-  // Stop polling helper
-  const stopPolling = useCallback(() => {
-    if (pollTimerRef.current) {
-      clearTimeout(pollTimerRef.current);
-      pollTimerRef.current = null;
-    }
-    if (pollAbortRef.current) {
-      pollAbortRef.current.abort();
-      pollAbortRef.current = null;
-    }
-    isPollingRef.current = false;
-    activeJobIdRef.current = null;
-  }, []);
-
-  // Poll job status
-  const pollJob = useCallback(
-    async (jobId: string) => {
-      if (isPollingRef.current) return; // Serialize polls
-      isPollingRef.current = true;
-      activeJobIdRef.current = jobId;
-
-      const poll = async () => {
-        try {
-          const jobData = mode === 'fixture' ? await fixtureFetchJob(jobId) : await fetchJob(jobId);
-          if (activeJobIdRef.current !== jobId) return; // Stale poll
-
-          setJob(jobData);
-          consecutiveFailuresRef.current = 0;
-
-          if (jobData.status === 'completed' && jobData.result_id) {
-            stopPolling();
-            // Fetch result
-            const resultData = mode === 'fixture' ? await fixtureFetchResult(jobData.result_id) : await fetchResult(jobData.result_id);
-            if (activeJobIdRef.current !== jobId) return;
-            setResult(resultData);
-            // Refresh observation/attention lists
-            if (selectedZoneId) {
-              const [obsData, attData] = await Promise.all([
-                mode === 'fixture' ? fixtureFetchObservations(selectedZoneId) : fetchObservations(selectedZoneId),
-                mode === 'fixture' ? fixtureFetchAttention(selectedZoneId) : fetchAttention(selectedZoneId),
-              ]);
-              if (activeJobIdRef.current !== jobId) return;
-              setObservations(obsData);
-              setAttention(attData);
-            }
-            return;
-          }
-
-          if (jobData.status === 'failed') {
-            stopPolling();
-            if (jobData.error) {
-              setError(jobData.error);
-            }
-            return;
-          }
-
-          // Still queued/running — schedule next poll
-          pollTimerRef.current = setTimeout(poll, POLL_INTERVAL_MS);
-        } catch (err: unknown) {
-          if (activeJobIdRef.current !== jobId) return;
-          consecutiveFailuresRef.current++;
-          if (consecutiveFailuresRef.current >= MAX_CONSECUTIVE_FAILURES) {
-            stopPolling();
-            if (err instanceof ApiRequestError) {
-              setError({ code: err.code, message: err.message, details: err.details });
-            } else {
-              setError({ code: 'UNKNOWN', message: String(err), details: null });
-            }
-            return;
-          }
-          // Retry after interval
-          pollTimerRef.current = setTimeout(poll, POLL_INTERVAL_MS);
-        }
-      };
-
-      poll();
-    },
-    [mode, selectedZoneId, stopPolling],
-  );
-
-  // Select zone
-  const selectZone = useCallback(
-    (id: string) => {
-      stopPolling();
-      setSelectedZoneId(id);
-      setSelectedObservation(null);
-      setResult(null);
-      setJob(null);
-    },
-    [stopPolling],
-  );
-
-  // Select observation
-  const selectObservation = useCallback(
-    async (id: string) => {
-      const requestId = ++observationRequestIdRef.current;
-      stopPolling();
-
-      // Find in current observations
-      const obs = observations.find((o) => o.id === id);
-      if (!obs) return;
-
-      setSelectedObservation(obs);
-      setResult(null);
-      setJob(null);
-
-      // Check result cache first
-      const cachedResultId = resultCache.get(id);
-      if (cachedResultId) {
-        try {
-          const resultData = mode === 'fixture' ? await fixtureFetchResult(cachedResultId) : await fetchResult(cachedResultId);
-          if (requestId !== observationRequestIdRef.current) return;
-          setResult(resultData);
-          return;
-        } catch {
-          // Cache miss — fall through to latest_result_id
-        }
-      }
-
-      // Use latest_result_id if present
-      if (obs.latest_result_id) {
-        try {
-          const resultData = mode === 'fixture' ? await fixtureFetchResult(obs.latest_result_id) : await fetchResult(obs.latest_result_id);
-          if (requestId !== observationRequestIdRef.current) return;
-          setResult(resultData);
-          resultCache.set(id, obs.latest_result_id);
-        } catch (err: unknown) {
-          if (requestId !== observationRequestIdRef.current) return;
-          if (err instanceof ApiRequestError) {
-            setError({ code: err.code, message: err.message, details: err.details });
-          }
-        }
-      }
-    },
-    [observations, mode, stopPolling],
-  );
-
-  // Import observation
-  const importObservationFn = useCallback(
-    async (image: File, metadata: ObservationMetadata): Promise<Observation> => {
-      setUploadState('loading');
-      try {
-        const obs = mode === 'fixture' ? await fixtureImportObservation(image, metadata) : await importObservation(image, metadata);
-        setUploadState('success');
-        // Select newly imported observation
-        await selectObservation(obs.id);
-        return obs;
-      } catch (err: unknown) {
-        setUploadState('error');
-        if (err instanceof ApiRequestError) {
-          setError({ code: err.code, message: err.message, details: err.details });
-        } else {
-          setError({ code: 'UNKNOWN', message: String(err), details: null });
-        }
-        throw err;
-      }
-    },
-    [mode, selectObservation],
-  );
-
-  // Analyze observation
-  const analyzeObservationFn = useCallback(
-    async (id: string) => {
-      // Check job cache — don't duplicate POSTs
-      const cachedJobId = jobCache.get(id);
-      if (cachedJobId) {
-        // Resume polling existing job
-        setJob({ id: cachedJobId, observation_id: id, status: 'queued', result_id: null, error: null });
-        await pollJob(cachedJobId);
-        return;
-      }
-
-      setUploadState('loading');
-      try {
-        const newJob = mode === 'fixture' ? await fixtureAnalyzeObservation(id) : await analyzeObservation(id);
-        jobCache.set(id, newJob.id);
-        setJob(newJob);
-        setUploadState('success');
-        await pollJob(newJob.id);
-      } catch (err: unknown) {
-        setUploadState('error');
-        if (err instanceof ApiRequestError) {
-          setError({ code: err.code, message: err.message, details: err.details });
-        } else {
-          setError({ code: 'UNKNOWN', message: String(err), details: null });
-        }
-        throw err;
-      }
-    },
-    [mode, pollJob],
-  );
-
-  // Refresh current zone data
   const refresh = useCallback(async () => {
-    if (!selectedZoneId) return;
-    const requestId = ++zoneRequestIdRef.current;
+    setLoadState('loading'); setError(null);
     try {
-      const [obsData, attData] = await Promise.all([
-        mode === 'fixture' ? fixtureFetchObservations(selectedZoneId) : fetchObservations(selectedZoneId),
-        mode === 'fixture' ? fixtureFetchAttention(selectedZoneId) : fetchAttention(selectedZoneId),
+      const [h, z] = await Promise.all([
+        mode === 'fixture' ? fixture.fixtureFetchHealth() : api.fetchHealth(),
+        mode === 'fixture' ? fixture.fixtureFetchZones() : api.fetchZones(),
       ]);
-      if (requestId !== zoneRequestIdRef.current) return;
-      setObservations(obsData);
-      setAttention(attData);
-    } catch (err: unknown) {
-      if (err instanceof ApiRequestError) {
-        setError({ code: err.code, message: err.message, details: err.details });
+      if (!alive.current) return;
+      setHealth(h); setZones(z);
+      const chosen = z.find(item => item.id === zoneRef.current)?.id ?? z[0]?.id ?? null;
+      if (!chosen) {
+        invalidateView(); zoneRef.current = null; setSelectedZoneId(null);
+        setObservations([]); setAttention([]); setSelectedObservation(null); setResult(null); setJob(null);
+      } else if (zoneRef.current !== chosen) {
+        selectZone(chosen);
       } else {
-        setError({ code: 'UNKNOWN', message: String(err), details: null });
+        await reloadZone(chosen);
       }
-    }
-  }, [selectedZoneId, mode]);
+      if (alive.current) setLoadState('success');
+    } catch (err) { report(err); if (alive.current) setLoadState('error'); }
+  }, [mode, invalidateView, selectZone, reloadZone, report]);
 
-  // Cleanup on unmount
   useEffect(() => {
-    return () => {
-      stopPolling();
-    };
-  }, [stopPolling]);
+    alive.current = true;
+    void refresh();
+    return () => { alive.current = false; invalidateView(); };
+  }, [refresh, invalidateView]);
 
-  return {
-    mode,
-    health,
-    zones,
-    selectedZoneId,
-    observations,
-    selectedObservation,
-    result,
-    job,
-    attention,
-    loadState,
-    uploadState,
-    error,
-    selectZone,
-    selectObservation,
-    importObservation: importObservationFn,
-    analyzeObservation: analyzeObservationFn,
-    refresh,
-    clearError,
-  };
+  useEffect(() => {
+    if (!selectedZoneId) return;
+    const controller = new AbortController();
+    setLoadState('loading');
+    void reloadZone(selectedZoneId, controller.signal)
+      .then(() => { if (!controller.signal.aborted && alive.current) setLoadState('success'); })
+      .catch(err => { if (!controller.signal.aborted) { report(err); setLoadState('error'); } });
+    return () => controller.abort();
+  }, [selectedZoneId, reloadZone, report]);
+
+  const pollJob = useCallback((jobId: string, observationId: string, zone: string) => {
+    stopPolling();
+    const controller = new AbortController(); pollController.current = controller;
+    const viewEpoch = epoch.current;
+    let failures = 0;
+    const current = () => alive.current && !controller.signal.aborted && epoch.current === viewEpoch;
+    const poll = async () => {
+      try {
+        const state = mode === 'fixture' ? await fixture.fixtureFetchJob(jobId) : await api.fetchJob(jobId, controller.signal);
+        if (!current()) return;
+        setJob(state); failures = 0;
+        if (state.status === 'failed') {
+          jobCache.current.delete(observationId);
+          if (state.error) setError(state.error);
+          return;
+        }
+        if (state.status === 'completed' && state.result_id) {
+          const nextResult = mode === 'fixture' ? await fixture.fixtureFetchResult(state.result_id) : await api.fetchResult(state.result_id, controller.signal);
+          if (!current()) return;
+          setResult(nextResult);
+          jobCache.current.delete(observationId);
+          const fresh = mode === 'fixture'
+            ? (await fixture.fixtureFetchObservations(zone)).find(item => item.id === observationId)
+            : await api.fetchObservation(observationId, controller.signal);
+          if (!current()) return;
+          if (fresh) setSelectedObservation(fresh);
+          await reloadZone(zone, controller.signal);
+          return;
+        }
+        pollTimer.current = setTimeout(() => void poll(), 1000);
+      } catch (err) {
+        if (!current()) return;
+        failures++;
+        if (failures >= 3) { report(err); return; }
+        pollTimer.current = setTimeout(() => void poll(), 1000);
+      }
+    };
+    void poll();
+  }, [mode, stopPolling, reloadZone, report]);
+
+  const selectObservation = useCallback(async (id: string) => {
+    invalidateView();
+    const requestEpoch = epoch.current;
+    const controller = new AbortController(); viewController.current = controller;
+    setResult(null); setJob(null); setError(null);
+    const current = () => alive.current && !controller.signal.aborted && epoch.current === requestEpoch;
+    try {
+      const obs = mode === 'fixture'
+        ? (await fixture.fixtureFetchObservations(zoneRef.current ?? '')).find(item => item.id === id)
+        : await api.fetchObservation(id, controller.signal);
+      if (!obs) throw new Error('Observation not found');
+      if (!current()) return;
+      if (zoneRef.current !== obs.zone_id) {
+        zoneRef.current = obs.zone_id; setSelectedZoneId(obs.zone_id);
+      }
+      setSelectedObservation(obs);
+      if (obs.latest_result_id) {
+        const next = mode === 'fixture' ? await fixture.fixtureFetchResult(obs.latest_result_id) : await api.fetchResult(obs.latest_result_id, controller.signal);
+        if (!current()) return;
+        setResult(next);
+      }
+      const pending = jobCache.current.get(id);
+      if (pending && current()) pollJob(pending, id, obs.zone_id);
+    } catch (err) { if (current()) report(err); }
+  }, [mode, invalidateView, pollJob, report]);
+
+  const importObservationFn = useCallback(async (image: File, metadata: ObservationMetadata) => {
+    setUploadState('loading'); setError(null);
+    try {
+      const obs = mode === 'fixture' ? await fixture.fixtureImportObservation(image, metadata) : await api.importObservation(image, metadata);
+      if (alive.current) {
+        if (zoneRef.current !== obs.zone_id) selectZone(obs.zone_id);
+        setObservations(items => [obs, ...items.filter(item => item.id !== obs.id)]);
+        await selectObservation(obs.id);
+        setUploadState('success');
+      }
+      return obs;
+    } catch (err) { report(err); if (alive.current) setUploadState('error'); throw err; }
+  }, [mode, selectZone, selectObservation, report]);
+
+  const analyzeObservationFn = useCallback(async (id: string) => {
+    if (submitting.current.has(id)) return;
+    const zone = zoneRef.current;
+    if (!zone) return;
+    const existing = jobCache.current.get(id);
+    if (existing) { pollJob(existing, id, zone); return; }
+    submitting.current.add(id);
+    const startEpoch = epoch.current;
+    setError(null); setResult(null);
+    setJob({ id: '', observation_id: id, status: 'queued', result_id: null, error: null });
+    try {
+      const accepted = mode === 'fixture'
+        ? await fixture.fixtureAnalyzeObservation(id)
+        : await api.analyzeObservation(id);
+      const jobId = 'job_id' in accepted ? accepted.job_id : accepted.id;
+      jobCache.current.set(id, jobId);
+      if (!alive.current || epoch.current !== startEpoch) return;
+      setJob({ id: jobId, observation_id: id, status: accepted.status, result_id: null, error: null });
+      pollJob(jobId, id, zone);
+    } catch (err) {
+      if (alive.current && epoch.current === startEpoch) { setJob(null); report(err); }
+      throw err;
+    } finally { submitting.current.delete(id); }
+  }, [mode, pollJob, report]);
+
+  return { mode, health, zones, selectedZoneId, observations, selectedObservation, result, job, attention,
+    loadState, uploadState, error, selectZone, selectObservation, importObservation: importObservationFn,
+    analyzeObservation: analyzeObservationFn, refresh, clearError: () => setError(null) };
 }

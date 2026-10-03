@@ -40,6 +40,7 @@ export interface FormulaOutput {
   version: string | null;
   value: number | null;
   unit: string | null;
+  status?: "available" | "unavailable" | "invalid";
 }
 
 export interface Metric {
@@ -97,7 +98,7 @@ export interface AttentionReason {
 
 export interface AttentionReport {
   ruleVersion: string;
-  generatedAt: string;
+  generatedAt: string | null;
   reasons: AttentionReason[];
 }
 

@@ -130,6 +130,8 @@ Downloaded samples live under `data/evaluation/`. Their manifest stores evaluati
 
 ## Verification
 
+For a visible sensor-data/formula walkthrough, see [the CWSI demonstration](docs/FORMULA_DEMO.md). Five explicitly simulated cases exercise valid arithmetic, changed inputs, missing data, timestamp mismatch and invalid baselines through the live API and stored dashboard results.
+
 ```powershell
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 npm.cmd --prefix frontend run typecheck

@@ -86,6 +86,15 @@ export async function fixtureFetchJob(jobId: string): Promise<AnalysisJob> {
   }
   const advanced = advanceFixtureJob(job);
   fixtureJobs.set(jobId, advanced);
+  if (advanced.status === 'completed' && advanced.result_id && !FIXTURE_RESULTS[advanced.result_id]) {
+    const result = createFixtureResult(advanced.observation_id, advanced.result_id);
+    FIXTURE_RESULTS[result.id] = result;
+    const obs = Object.values(FIXTURE_OBSERVATIONS).flat().find(o => o.id === advanced.observation_id);
+    if (obs) {
+      obs.latest_result_id = result.id;
+      FIXTURE_ATTENTION[obs.zone_id] = [...(FIXTURE_ATTENTION[obs.zone_id] || []).filter(a => a.observation_id !== obs.id), {observation_id:obs.id,zone_id:obs.zone_id,...result.attention}];
+    }
+  }
   return { ...advanced };
 }
 
@@ -95,11 +104,7 @@ export async function fixtureFetchResult(resultId: string): Promise<AnalysisResu
   if (existing) {
     return { ...existing };
   }
-  // Generate a new result for completed jobs
-  const newResult = createFixtureResult('unknown');
-  newResult.id = resultId;
-  FIXTURE_RESULTS[resultId] = newResult;
-  return newResult;
+  throw new Error('Fixture result not found: ' + resultId);
 }
 
 export async function fixtureSendChat(req: ChatRequest): Promise<ChatResponse> {

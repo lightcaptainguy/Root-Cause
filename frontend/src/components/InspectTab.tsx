@@ -1,52 +1,48 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { AnalysisResult, ImportInput, Observation, Zone } from "../types";
 import { ApiError } from "../types";
-import { getObservation, importObservation, startAnalysis, type Scenario } from "../api/mockApi";
+import { ApiRequestError } from "../api/client";
 import { Viewer } from "./Viewer";
 
 const KINDS = ["closeup_leaf", "aerial", "other"] as const;
 
 export function InspectTab({
-  scenario,
   zones,
   defaultZoneId,
   observation,
-  onImported,
-  onObservationUpdated,
+  onImport,
+  onAnalyze,
 }: {
-  scenario: Scenario;
   zones: Zone[];
   defaultZoneId: string;
   observation: Observation | null;
-  onImported: (o: Observation) => void;
-  onObservationUpdated: (o: Observation) => void;
+  onImport: (input: ImportInput) => Promise<void>;
+  onAnalyze: (id: string) => Promise<void>;
 }) {
   return (
     <div className="inspect">
       <details className="import-panel">
         <summary>Import a new image</summary>
-        <ImportForm scenario={scenario} zones={zones} defaultZoneId={defaultZoneId} onImported={onImported} />
+        <ImportForm zones={zones} defaultZoneId={defaultZoneId} onImport={onImport} />
       </details>
 
       {observation == null ? (
         <p className="empty">Select an observation from the history panel, or import a new image.</p>
       ) : (
-        <ObservationDetail scenario={scenario} observation={observation} onObservationUpdated={onObservationUpdated} />
+        <ObservationDetail key={observation.id} observation={observation} onAnalyze={onAnalyze} />
       )}
     </div>
   );
 }
 
 function ImportForm({
-  scenario,
   zones,
   defaultZoneId,
-  onImported,
+  onImport,
 }: {
-  scenario: Scenario;
   zones: Zone[];
   defaultZoneId: string;
-  onImported: (o: Observation) => void;
+  onImport: (input: ImportInput) => Promise<void>;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [zoneId, setZoneId] = useState(defaultZoneId);
@@ -58,6 +54,7 @@ function ImportForm({
   const [metadataJson, setMetadataJson] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  useEffect(() => { setZoneId(defaultZoneId); }, [defaultZoneId]);
 
   const validate = (): string[] => {
     const errs: string[] = [];
@@ -68,7 +65,7 @@ function ImportForm({
       try {
         const parsed = JSON.parse(metadataJson);
         if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) errs.push("Metadata JSON must be an object (key/value pairs).");
-        else if ("measurements" in parsed && typeof parsed.measurements !== "object") errs.push("metadata.measurements must be an object when present.");
+        else if ("measurements" in parsed && !Array.isArray(parsed.measurements)) errs.push("metadata.measurements must be a list when present.");
       } catch (e) {
         errs.push(`Metadata JSON is not valid JSON: ${e instanceof Error ? e.message : "parse error"}`);
       }
@@ -84,11 +81,12 @@ function ImportForm({
     setBusy(true);
     try {
       const input: ImportInput = { file: file!, zoneId, imageKind, crop, capturedAt, source: source || "user_supplied", notes, metadataJson };
-      const obs = await importObservation(input, scenario);
+      await onImport(input);
       setErrors([]);
-      onImported(obs);
     } catch (err) {
-      if (err instanceof ApiError) {
+      if (err instanceof ApiRequestError) {
+        setErrors([err.message]);
+      } else if (err instanceof ApiError) {
         setErrors([err.message, ...(err.details ?? [])]);
       } else {
         setErrors(["Import failed unexpectedly."]);
@@ -134,8 +132,10 @@ function ImportForm({
         <input type="datetime-local" value={capturedAt} onChange={(e) => setCapturedAt(e.target.value)} />
       </label>
       <label>
-        Source
-        <input type="text" value={source} onChange={(e) => setSource(e.target.value)} />
+        Source kind
+        <select value={source} onChange={(e) => setSource(e.target.value)}>
+          {["user_supplied", "dataset", "recorded", "live", "simulated"].map(kind => <option key={kind}>{kind}</option>)}
+        </select>
         <small>Default is "user_supplied". Do not label as a dataset automatically.</small>
       </label>
       <label>
@@ -148,7 +148,7 @@ function ImportForm({
           value={metadataJson}
           onChange={(e) => setMetadataJson(e.target.value)}
           rows={4}
-          placeholder={'{"measurements": {"leaf_spot_area": {"value": 214, "unit": "mm2"}}}'}
+          placeholder={'{"measurements": [{"name": "soil_ph", "value": null, "unit": "pH", "measured_at": null, "source": {"kind": "recorded", "name": null, "reference": null}, "quality": "missing"}]}'}
           aria-describedby="metadata-help"
         />
         <small id="metadata-help">Soil and other values are only taken from what you enter here; they are never auto-filled.</small>
@@ -159,13 +159,11 @@ function ImportForm({
 }
 
 function ObservationDetail({
-  scenario,
   observation,
-  onObservationUpdated,
+  onAnalyze,
 }: {
-  scenario: Scenario;
   observation: Observation;
-  onObservationUpdated: (o: Observation) => void;
+  onAnalyze: (id: string) => Promise<void>;
 }) {
   const [jobError, setJobError] = useState<string | null>(null);
   const busy = observation.job === "queued" || observation.job === "running";
@@ -173,14 +171,10 @@ function ObservationDetail({
   const analyze = async () => {
     setJobError(null);
     try {
-      onObservationUpdated({ ...observation, job: "queued", error: null });
-      await startAnalysis(observation.id, scenario);
-      const fresh = await getObservation(observation.id, scenario);
-      if (fresh) onObservationUpdated(fresh);
+      await onAnalyze(observation.id);
     } catch (err) {
-      if (err instanceof ApiError) {
+      if (err instanceof ApiError || err instanceof ApiRequestError) {
         setJobError(err.message);
-        onObservationUpdated({ ...observation, job: null });
       } else {
         setJobError("Could not start analysis.");
       }
@@ -198,9 +192,6 @@ function ObservationDetail({
           {observation.error ? ` — ${observation.error}` : ""}
         </p>
         {jobError && <p role="alert" className="job-error">{jobError}</p>}
-        {(scenario === "queue_full" || scenario === "backend_offline") && (
-          <p className="meta">Backend error above. <button onClick={analyze}>Retry</button></p>
-        )}
       </div>
 
       {observation.job === "failed" && <p role="alert" className="job-error">Analysis failed: {observation.error ?? "unknown error"} <button onClick={analyze}>Retry</button></p>}
@@ -227,18 +218,19 @@ function Results({ result }: { result: AnalysisResult }) {
         Capture time: {result.capturedAt ? new Date(result.capturedAt).toLocaleString() : "unknown"}
         {" · "}Received time: {new Date(result.receivedAt).toLocaleString()}
         {result.affectedFraction && (
-          <> · Affected: {result.affectedFraction.value}% of {result.affectedFraction.denominator === "leaf_area" ? "leaf area" : "image area"}</>
+          <> · Experimental discoloration: {(result.affectedFraction.value * 100).toFixed(3)}% of {result.affectedFraction.denominator === "leaf_area" ? "estimated leaf region" : "image area"}; not disease severity.</>
         )}
       </p>
 
       <h3>Measurements</h3>
       <table>
         <thead>
-          <tr><th>Value</th><th>Unit</th><th>Source</th><th>Measurement time</th><th>Quality</th></tr>
+          <tr><th>Measurement</th><th>Value</th><th>Unit</th><th>Source</th><th>Measurement time</th><th>Quality</th></tr>
         </thead>
         <tbody>
           {result.measurements.map((m) => (
             <tr key={m.key}>
+              <td>{m.label}</td>
               <td>{m.value ?? "—"} {m.value == null && <span className="missing-label">Missing</span>}</td>
               <td>{m.unit ?? "—"}</td>
               <td>{m.source}</td>
@@ -258,7 +250,7 @@ function Results({ result }: { result: AnalysisResult }) {
               <td>{f.name}</td>
               <td>{f.formula ?? "Unavailable"}</td>
               <td>{f.version ?? "Unavailable"}</td>
-              <td>{f.value ?? "—"}</td>
+              <td>{f.value ?? f.status ?? "Unavailable"}</td>
               <td>{f.unit ?? "—"}</td>
             </tr>
           ))}

@@ -1,0 +1,26 @@
+import {build} from 'esbuild';
+import assert from 'node:assert/strict';
+const compiled = await build({entryPoints:['src/api/client.ts'],bundle:true,write:false,format:'esm',platform:'node',define:{'import.meta.env':JSON.stringify({VITE_API_BASE:'/api'})}});
+const api = await import('data:text/javascript;base64,'+Buffer.from(compiled.outputFiles[0].text).toString('base64'));
+const calls=[];
+globalThis.fetch=async(url,options)=>{
+ calls.push({url,options});
+ const bodies={'/api/zones':{items:[{id:'zone a',name:'A'}]},'/api/observations?zone_id=zone%20a':{items:[]},'/api/attention?zone_id=zone%20a':{items:[]},'/api/observations/obs/analyze':{job_id:'job',observation_id:'obs',status:'queued'}};
+ return new Response(JSON.stringify(bodies[url]??{error:{code:'NOT_FOUND',message:'Missing record',details:null}}),{status:bodies[url]?200:404});
+};
+assert.deepEqual(await api.fetchZones(),[{id:'zone a',name:'A'}]);
+assert.deepEqual(await api.fetchObservations('zone a'),[]);
+assert.deepEqual(await api.fetchAttention('zone a'),[]);
+assert.equal((await api.analyzeObservation('obs')).job_id,'job');
+assert.equal(calls.at(-1).options.method,'POST');
+assert.equal(api.getAssetUrl('/api/assets/image'),'/api/assets/image');
+assert.throws(()=>api.getAssetUrl('/api/assets/../secret'));
+await assert.rejects(api.fetchJob('missing'),error=>error.code==='NOT_FOUND'&&error.status===404);
+globalThis.fetch=async()=>new Response(JSON.stringify({wrong:[]}));
+await assert.rejects(api.fetchZones(),error=>error.code==='INVALID_RESPONSE');
+globalThis.fetch=(_url,options)=>new Promise((_,reject)=>options.signal.addEventListener('abort',()=>reject(new DOMException('Aborted','AbortError'))));
+const controller=new AbortController();
+const pending=api.sendChat({message:'test'},controller.signal);
+controller.abort();
+await assert.rejects(pending,error=>error.code==='CANCELLED');
+console.log('API contract checks passed: list envelopes, encoded routes, job acceptance, assets, backend errors, invalid responses, chat cancellation.');

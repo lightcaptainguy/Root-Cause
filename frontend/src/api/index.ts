@@ -3,6 +3,8 @@ export {
   fetchHealth,
   fetchZones,
   fetchObservations,
+  fetchObservation,
+  createZone,
   fetchAttention,
   importObservation,
   analyzeObservation,

@@ -29,7 +29,7 @@ export function Viewer({ observation }: { observation: Observation }) {
           Leaf box
         </button>
         <button aria-pressed={showMask} disabled={!maskAvailable} onClick={() => setShowMask((v) => !v)}>
-          Lesion mask
+          Discoloration overlay
         </button>
         <button onClick={() => setFitPanel((v) => !v)} aria-pressed={fitPanel}>
           {fitPanel ? "Fit: panel" : "Fit: natural"}
@@ -38,7 +38,7 @@ export function Viewer({ observation }: { observation: Observation }) {
       <p className="viewer-methods">
         <span>Leaf box method: {geometry?.boxMethod ?? "unavailable"}{boxAvailable ? "" : " (no box provided)"}</span>
         <br />
-        <span>Lesion mask method: {geometry?.maskMethod ?? "Segmentation unavailable"}</span>
+        <span>Overlay method: {geometry?.maskMethod ?? "Segmentation unavailable"}</span>
       </p>
 
       <div className="image-frame">

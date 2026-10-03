@@ -162,7 +162,13 @@ class ChatService:
                         message = payload["message"]
                         calls = message.get("tool_calls", [])
                         if not calls:
-                            answer = checked_answer(message.get("content", ""))
+                            try:
+                                answer = checked_answer(message.get("content", ""))
+                            except ValueError:
+                                if turn == 3:
+                                    raise
+                                messages.append({"role":"user","content":"Rewrite the explanation as short qualitative JSON. Avoid ALL digits and ALL forms of confirm, diagnosis, guarantee and confidence, including negated phrases. Use 'suggests' and 'needs verification'. Mention missing inputs and experimental limits."})
+                                continue
                             break
                         if turn == 3: raise ValueError("Tool-call limit exceeded")
                         messages.append(message)

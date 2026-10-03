@@ -18,6 +18,7 @@ interface ChatMessage {
   evidence: EvidenceItem[];
   limitations: string[];
   isError: boolean;
+  errorText?: string;
 }
 
 const SUGGESTED_QUESTIONS = [
@@ -60,6 +61,10 @@ export function ChatPanel({ zoneId, observationId, onOpenEvidence }: ChatPanelPr
     setMessages([]);
     setError(null);
     setIsPending(false);
+    return () => {
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = null;
+    };
   }, [zoneId, observationId]);
 
   // Scroll to bottom on new messages
@@ -69,12 +74,7 @@ export function ChatPanel({ zoneId, observationId, onOpenEvidence }: ChatPanelPr
 
   const sendMessage = useCallback(
     async (text: string) => {
-      if (!text.trim() || isPending) return;
-
-      // Only one request in flight
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
+      if (!text.trim() || isPending || abortControllerRef.current) return;
 
       const controller = new AbortController();
       abortControllerRef.current = controller;
@@ -106,7 +106,9 @@ export function ChatPanel({ zoneId, observationId, onOpenEvidence }: ChatPanelPr
               zone_id: zoneId ?? undefined,
               observation_id: observationId ?? undefined,
               conversation_id: conversationIdRef.current ?? undefined,
-            });
+            }, controller.signal);
+
+        if (controller.signal.aborted || abortControllerRef.current !== controller) return;
 
         conversationIdRef.current = response.conversation_id;
 
@@ -121,6 +123,7 @@ export function ChatPanel({ zoneId, observationId, onOpenEvidence }: ChatPanelPr
 
         setMessages((prev) => [...prev, assistantMessage]);
       } catch (err: unknown) {
+        if (controller.signal.aborted || abortControllerRef.current !== controller) return;
         const errorMsg = err instanceof ApiRequestError ? err.message : 'Failed to send message';
         setError(errorMsg);
 
@@ -131,11 +134,14 @@ export function ChatPanel({ zoneId, observationId, onOpenEvidence }: ChatPanelPr
           evidence: [],
           limitations: [],
           isError: true,
+          errorText: errorMsg,
         };
         setMessages((prev) => [...prev, assistantErrorMessage]);
       } finally {
-        setIsPending(false);
-        abortControllerRef.current = null;
+        if (abortControllerRef.current === controller) {
+          setIsPending(false);
+          abortControllerRef.current = null;
+        }
       }
     },
     [isPending, zoneId, observationId],
@@ -191,7 +197,7 @@ export function ChatPanel({ zoneId, observationId, onOpenEvidence }: ChatPanelPr
           <div key={msg.id} className={`chat-panel__message chat-panel__message--${msg.role}`}>
             {msg.isError ? (
               <div className="chat-panel__error">
-                <p>{error}</p>
+                <p role="alert">{msg.errorText ?? error}</p>
                 <button onClick={handleRetry} className="chat-panel__retry">
                   Retry
                 </button>
@@ -235,6 +241,7 @@ export function ChatPanel({ zoneId, observationId, onOpenEvidence }: ChatPanelPr
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Ask a question..."
+          aria-label="Question for local AI"
           disabled={isPending}
           className="chat-panel__input"
         />

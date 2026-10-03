@@ -1,0 +1,61 @@
+{
+  "zone_id": "formula-demo",
+  "captured_at": "2026-10-03T10:00:00+05:30",
+  "image_kind": "closeup_leaf",
+  "source": {
+    "kind": "simulated",
+    "name": "CWSI arithmetic demonstration",
+    "reference": null
+  },
+  "notes": "SIMULATED formula demonstration; not field telemetry. Case: out_of_sync",
+  "measurements": [
+    {
+      "name": "canopy_temperature",
+      "value": 32,
+      "unit": "degC",
+      "measured_at": "2026-10-03T10:00:00+05:30",
+      "source": {
+        "kind": "simulated",
+        "name": "CWSI arithmetic demonstration",
+        "reference": null
+      },
+      "quality": "valid"
+    },
+    {
+      "name": "air_temperature",
+      "value": 30,
+      "unit": "degC",
+      "measured_at": "2026-10-03T10:00:05+05:30",
+      "source": {
+        "kind": "simulated",
+        "name": "CWSI arithmetic demonstration",
+        "reference": null
+      },
+      "quality": "valid"
+    },
+    {
+      "name": "cwsi_lower_delta",
+      "value": -2,
+      "unit": "degC",
+      "measured_at": "2026-10-03T10:00:00+05:30",
+      "source": {
+        "kind": "simulated",
+        "name": "CWSI arithmetic demonstration",
+        "reference": null
+      },
+      "quality": "valid"
+    },
+    {
+      "name": "cwsi_upper_delta",
+      "value": 6,
+      "unit": "degC",
+      "measured_at": "2026-10-03T10:00:00+05:30",
+      "source": {
+        "kind": "simulated",
+        "name": "CWSI arithmetic demonstration",
+        "reference": null
+      },
+      "quality": "valid"
+    }
+  ]
+}

@@ -60,7 +60,7 @@ VITE_DATA_MODE=fixture
 Uses bundled fixture data for development and testing without a backend. Fixture mode:
 - Never silently activates after a live API failure
 - Is rejected in production builds (see `vite.config.ts`)
-- Exercises: classification, leaf box, experimental segmentation, null/stale soil data, unknown attention, attention reasons, unsupported aerial input, queue-full, unavailable chat
+- Provides explicitly simulated classification, attention, queued jobs, empty zones and unsupported aerial input. It supplies no invented sensor measurements or validated overlays.
 
 ## API Configuration
 
@@ -83,6 +83,7 @@ See `.env.example` for reference.
 |--------|-------------|
 | `dev` | Start Vite dev server |
 | `typecheck` | Run TypeScript type checking |
+| `verify:api` | Execute API contract, error and cancellation checks |
 | `build` | Type-check and build for production |
 | `preview` | Preview production build |
 

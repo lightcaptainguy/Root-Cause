@@ -133,6 +133,20 @@ button.link:hover { color: var(--amber); }
 .bubble.assistant { background: #eef3ec; border: 1px solid #cfdccd; }
 .evidence-links { display: grid; gap: 0.4rem; margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 0.75rem; }
 
+/* Functional integration of the supplied chat component into the existing layout. */
+.chat-panel__messages { max-height: 55vh; overflow-y: auto; overflow-wrap: anywhere; }
+.chat-panel__context { display: block; overflow-wrap: anywhere; font-size: 0.8rem; color: var(--muted); }
+.chat-panel__text { white-space: pre-wrap; }
+.chat-panel__message { border-radius: 8px; padding: 0.5rem; margin-bottom: 0.5rem; }
+.chat-panel__message--assistant { background: #eef3ec; }
+.chat-panel__message--user { background: #f1ebdb; }
+.chat-panel__suggestions, .chat-panel__evidence { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.chat-panel__limitation { display: block; font-size: 0.8rem; color: var(--muted); }
+.chat-panel__input-row { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.75rem; }
+.chat-panel__input { min-width: 0; flex: 1 1 160px; padding: 0.5rem; }
+.results, .history-item, .viewer-methods { overflow-wrap: anywhere; }
+.results { overflow-x: auto; }
+
 @media (max-width: 1020px) {
   .layout { grid-template-columns: 220px minmax(0, 1fr); }
   .chat { grid-column: 1 / -1; position: static; display: none; }

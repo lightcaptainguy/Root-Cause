@@ -43,7 +43,7 @@ export function AttentionTab({
       )}
       <details className="evidence">
         <summary>Rule version</summary>
-        <p>Rule version: {attention.ruleVersion} · Generated: {new Date(attention.generatedAt).toLocaleString()}</p>
+        <p>Rule version: {attention.ruleVersion}{attention.generatedAt ? " · Generated: " + new Date(attention.generatedAt).toLocaleString() : ""}</p>
         <p className="meta">Thresholds are evaluated by the backend; the app does not recompute them.</p>
       </details>
     </div>

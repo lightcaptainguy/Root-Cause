@@ -1,185 +1,109 @@
-// Typed native-fetch client for all backend routes.
-// Handles error envelopes, network/HTTP/invalid-response errors.
-
 import type {
-  AnalysisJob,
-  AnalysisResult,
-  AttentionItem,
-  ChatRequest,
-  ChatResponse,
-  Health,
-  Observation,
-  ObservationMetadata,
-  Zone,
+  AnalysisJob, AnalysisResult, AnalyzeAccepted, AttentionItem, ChatRequest, ChatResponse,
+  Health, Observation, ObservationMetadata, Zone,
 } from '../types/contracts';
 
-const API_BASE = import.meta.env.VITE_API_BASE || '/api';
-
-// Timeouts
+const API_BASE = (import.meta.env.VITE_API_BASE || '/api').replace(/\/$/, '');
 const DEFAULT_TIMEOUT_MS = 30_000;
 const CHAT_TIMEOUT_MS = 120_000;
 
 export class ApiRequestError extends Error {
-  code: string;
-  status: number | null;
-  details: unknown;
-
-  constructor(code: string, message: string, status: number | null = null, details: unknown = null) {
-    super(message);
-    this.name = 'ApiRequestError';
-    this.code = code;
-    this.status = status;
-    this.details = details;
+  constructor(public code: string, message: string, public status: number | null = null, public details: unknown = null) {
+    super(message); this.name = 'ApiRequestError';
   }
 }
-
-interface ErrorEnvelope {
-  error: {
-    code: string;
-    message: string;
-    details?: unknown;
-  };
+function record(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
-
-function isErrorEnvelope(data: unknown): data is ErrorEnvelope {
-  return (
-    typeof data === 'object' &&
-    data !== null &&
-    'error' in data &&
-    typeof (data as ErrorEnvelope).error === 'object' &&
-    (data as ErrorEnvelope).error !== null &&
-    'code' in (data as ErrorEnvelope).error &&
-    'message' in (data as ErrorEnvelope).error
-  );
-}
-
-async function parseErrorResponse(response: Response): Promise<ApiRequestError> {
-  const text = await response.text();
-  let data: unknown;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    return new ApiRequestError(
-      'INVALID_RESPONSE',
-      `Server returned non-JSON response (HTTP ${response.status})`,
-      response.status,
-      text.slice(0, 500),
-    );
-  }
-
-  if (isErrorEnvelope(data)) {
-    return new ApiRequestError(
-      data.error.code,
-      data.error.message,
-      response.status,
-      data.error.details ?? null,
-    );
-  }
-
-  return new ApiRequestError(
-    'INVALID_RESPONSE',
-    `Unexpected response shape (HTTP ${response.status})`,
-    response.status,
-    data,
-  );
-}
-
-async function request<T>(
-  path: string,
-  options: RequestInit = {},
-  timeoutMs: number = DEFAULT_TIMEOUT_MS,
-): Promise<T> {
+async function request<T>(path: string, options: RequestInit = {}, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<T> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
-  let response: Response;
+  const external = options.signal;
+  const abort = () => controller.abort();
+  if (external?.aborted) controller.abort();
+  external?.addEventListener('abort', abort, { once: true });
+  const timeout = setTimeout(abort, timeoutMs);
   try {
-    response = await fetch(`${API_BASE}${path}`, {
-      ...options,
-      signal: controller.signal,
-    });
-  } catch (err: unknown) {
-    clearTimeout(timeout);
-    if (err instanceof DOMException && err.name === 'AbortError') {
-      throw new ApiRequestError('TIMEOUT', 'Request timed out', null, null);
+    const response = await fetch(API_BASE + path, { ...options, signal: controller.signal });
+    let data: unknown;
+    try { data = await response.json(); }
+    catch (error) {
+      if (controller.signal.aborted) throw error;
+      throw new ApiRequestError('INVALID_RESPONSE', 'Server returned a non-JSON response', response.status);
     }
-    throw new ApiRequestError('NETWORK_ERROR', 'Network error — server unreachable', null, String(err));
+    if (!response.ok) {
+      if (record(data) && record(data.error) && typeof data.error.code === 'string' && typeof data.error.message === 'string') {
+        throw new ApiRequestError(data.error.code, data.error.message, response.status, data.error.details ?? null);
+      }
+      throw new ApiRequestError('INVALID_RESPONSE', 'Unexpected error response (HTTP ' + response.status + ')', response.status);
+    }
+    if (!record(data)) throw new ApiRequestError('INVALID_RESPONSE', 'Expected a JSON object', response.status);
+    return data as T;
+  } catch (error) {
+    if (error instanceof ApiRequestError) throw error;
+    if (controller.signal.aborted) {
+      throw new ApiRequestError(external?.aborted ? 'CANCELLED' : 'TIMEOUT', external?.aborted ? 'Request cancelled' : 'Request timed out');
+    }
+    throw new ApiRequestError('NETWORK_ERROR', 'Backend unreachable. Check that the local server is running.');
+  } finally {
+    clearTimeout(timeout); external?.removeEventListener('abort', abort);
   }
-  clearTimeout(timeout);
-
-  if (!response.ok) {
-    throw await parseErrorResponse(response);
+}
+function items<T>(data: { items: T[] }): T[] {
+  if (!Array.isArray(data.items)) throw new ApiRequestError('INVALID_RESPONSE', 'Expected an items list');
+  return data.items;
+}
+function observation(data: Observation): Observation {
+  if (typeof data.id !== 'string' || typeof data.zone_id !== 'string' || !record(data.image) ||
+      typeof data.image.url !== 'string' || !Array.isArray(data.measurements)) {
+    throw new ApiRequestError('INVALID_RESPONSE', 'Observation does not match backend contract');
   }
-
-  // 204 No Content
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  let data: unknown;
-  try {
-    data = await response.json();
-  } catch {
-    throw new ApiRequestError('INVALID_RESPONSE', 'Response was not valid JSON', response.status, null);
-  }
-
-  return data as T;
+  return data;
 }
-
-// --- Route implementations ---
-
-export async function fetchHealth(): Promise<Health> {
-  return request<Health>('/health');
+export async function fetchHealth(signal?: AbortSignal): Promise<Health> {
+  const data = await request<Health>('/health', { signal });
+  if (typeof data.vision_ready !== 'boolean' || typeof data.ollama_ready !== 'boolean') throw new ApiRequestError('INVALID_RESPONSE', 'Invalid health response');
+  return data;
 }
-
-export async function fetchZones(): Promise<Zone[]> {
-  return request<Zone[]>('/zones');
+export async function fetchZones(signal?: AbortSignal): Promise<Zone[]> {
+  return items(await request<{ items: Zone[] }>('/zones', { signal }));
 }
-
-export async function fetchObservations(zoneId: string): Promise<Observation[]> {
-  return request<Observation[]>(`/zones/${encodeURIComponent(zoneId)}/observations`);
+export async function createZone(zone: Zone, signal?: AbortSignal): Promise<Zone> {
+  return request('/zones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(zone), signal });
 }
-
-export async function fetchAttention(zoneId: string): Promise<AttentionItem[]> {
-  return request<AttentionItem[]>(`/zones/${encodeURIComponent(zoneId)}/attention`);
+export async function fetchObservations(zoneId: string, signal?: AbortSignal): Promise<Observation[]> {
+  return items(await request<{ items: Observation[] }>('/observations?zone_id=' + encodeURIComponent(zoneId), { signal })).map(observation);
 }
-
-export async function importObservation(
-  image: File,
-  metadata: ObservationMetadata,
-): Promise<Observation> {
+export async function fetchObservation(id: string, signal?: AbortSignal): Promise<Observation> {
+  return observation(await request('/observations/' + encodeURIComponent(id), { signal }));
+}
+export async function fetchAttention(zoneId: string, signal?: AbortSignal): Promise<AttentionItem[]> {
+  return items(await request<{ items: AttentionItem[] }>('/attention?zone_id=' + encodeURIComponent(zoneId), { signal }));
+}
+export async function importObservation(image: File, metadata: ObservationMetadata, signal?: AbortSignal): Promise<Observation> {
   const formData = new FormData();
   formData.append('image', image);
   formData.append('metadata', JSON.stringify(metadata));
-
-  return request<Observation>('/observations', {
-    method: 'POST',
-    body: formData,
-  });
+  return observation(await request('/observations', { method: 'POST', body: formData, signal }));
 }
-
-export async function analyzeObservation(observationId: string): Promise<AnalysisJob> {
-  return request<AnalysisJob>(`/observations/${encodeURIComponent(observationId)}/analyze`, {
-    method: 'POST',
-  });
+export async function analyzeObservation(id: string, signal?: AbortSignal): Promise<AnalyzeAccepted> {
+  const data = await request<AnalyzeAccepted>('/observations/' + encodeURIComponent(id) + '/analyze', { method: 'POST', signal });
+  if (typeof data.job_id !== 'string') throw new ApiRequestError('INVALID_RESPONSE', 'Analysis acceptance has no job_id');
+  return data;
 }
-
-export async function fetchJob(jobId: string): Promise<AnalysisJob> {
-  return request<AnalysisJob>(`/jobs/${encodeURIComponent(jobId)}`);
+export async function fetchJob(id: string, signal?: AbortSignal): Promise<AnalysisJob> {
+  return request('/jobs/' + encodeURIComponent(id), { signal });
 }
-
-export async function fetchResult(resultId: string): Promise<AnalysisResult> {
-  return request<AnalysisResult>(`/results/${encodeURIComponent(resultId)}`);
+export async function fetchResult(id: string, signal?: AbortSignal): Promise<AnalysisResult> {
+  const data = await request<AnalysisResult>('/results/' + encodeURIComponent(id), { signal });
+  if (typeof data.id !== 'string' || !record(data.classification) || !record(data.localization) || !record(data.segmentation)) {
+    throw new ApiRequestError('INVALID_RESPONSE', 'Analysis result does not match backend contract');
+  }
+  return data;
 }
-
-export async function sendChat(req: ChatRequest): Promise<ChatResponse> {
-  return request<ChatResponse>('/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(req),
-  }, CHAT_TIMEOUT_MS);
+export async function sendChat(req: ChatRequest, signal?: AbortSignal): Promise<ChatResponse> {
+  return request('/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req), signal }, CHAT_TIMEOUT_MS);
 }
-
 export function getAssetUrl(path: string): string {
-  return `${API_BASE}/assets/${path}`;
+  if (!path.startsWith('/api/assets/') || path.includes('..')) throw new ApiRequestError('INVALID_RESPONSE', 'Invalid backend asset URL');
+  return API_BASE + path.slice('/api'.length);
 }
