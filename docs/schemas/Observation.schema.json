@@ -1,0 +1,292 @@
+{
+  "$defs": {
+    "Association": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "default": "unassociated",
+          "enum": [
+            "associated",
+            "unassociated",
+            "partial"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "method": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Method"
+        },
+        "deltas_ms": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Deltas Ms",
+          "type": "object"
+        }
+      },
+      "title": "Association",
+      "type": "object"
+    },
+    "ImageAsset": {
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "width": {
+          "exclusiveMinimum": 0,
+          "title": "Width",
+          "type": "integer"
+        },
+        "height": {
+          "exclusiveMinimum": 0,
+          "title": "Height",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "url",
+        "width",
+        "height"
+      ],
+      "title": "ImageAsset",
+      "type": "object"
+    },
+    "ImageKind": {
+      "enum": [
+        "closeup_leaf",
+        "aerial",
+        "other"
+      ],
+      "title": "ImageKind",
+      "type": "string"
+    },
+    "Measurement": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Value"
+        },
+        "unit": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Unit",
+          "type": "string"
+        },
+        "measured_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Measured At"
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        },
+        "quality": {
+          "enum": [
+            "valid",
+            "stale",
+            "missing",
+            "invalid"
+          ],
+          "title": "Quality",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "value",
+        "unit",
+        "source",
+        "quality"
+      ],
+      "title": "Measurement",
+      "type": "object"
+    },
+    "Source": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/SourceKind"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "maxLength": 300,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "reference": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reference"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "Source",
+      "type": "object"
+    },
+    "SourceKind": {
+      "enum": [
+        "dataset",
+        "recorded",
+        "live",
+        "simulated",
+        "user_supplied"
+      ],
+      "title": "SourceKind",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "zone_id": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Zone Id",
+      "type": "string"
+    },
+    "captured_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Captured At"
+    },
+    "image_kind": {
+      "$ref": "#/$defs/ImageKind"
+    },
+    "crop_hint": {
+      "anyOf": [
+        {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Crop Hint"
+    },
+    "source": {
+      "$ref": "#/$defs/Source"
+    },
+    "measurements": {
+      "items": {
+        "$ref": "#/$defs/Measurement"
+      },
+      "maxItems": 256,
+      "title": "Measurements",
+      "type": "array"
+    },
+    "notes": {
+      "anyOf": [
+        {
+          "maxLength": 4000,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Notes"
+    },
+    "id": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Id",
+      "type": "string"
+    },
+    "received_at": {
+      "format": "date-time",
+      "title": "Received At",
+      "type": "string"
+    },
+    "image": {
+      "$ref": "#/$defs/ImageAsset"
+    },
+    "association": {
+      "$ref": "#/$defs/Association"
+    },
+    "latest_result_id": {
+      "anyOf": [
+        {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latest Result Id"
+    }
+  },
+  "required": [
+    "zone_id",
+    "image_kind",
+    "source",
+    "id",
+    "received_at",
+    "image"
+  ],
+  "title": "Observation",
+  "type": "object"
+}

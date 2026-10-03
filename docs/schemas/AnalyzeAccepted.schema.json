@@ -1,0 +1,32 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "job_id": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Job Id",
+      "type": "string"
+    },
+    "observation_id": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Observation Id",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "queued",
+        "running"
+      ],
+      "title": "Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "job_id",
+    "observation_id",
+    "status"
+  ],
+  "title": "AnalyzeAccepted",
+  "type": "object"
+}

@@ -1,0 +1,36 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "status": {
+      "enum": [
+        "ok",
+        "degraded"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "vision_ready": {
+      "title": "Vision Ready",
+      "type": "boolean"
+    },
+    "ollama_ready": {
+      "title": "Ollama Ready",
+      "type": "boolean"
+    },
+    "capabilities": {
+      "additionalProperties": {
+        "type": "boolean"
+      },
+      "title": "Capabilities",
+      "type": "object"
+    }
+  },
+  "required": [
+    "status",
+    "vision_ready",
+    "ollama_ready",
+    "capabilities"
+  ],
+  "title": "Health",
+  "type": "object"
+}

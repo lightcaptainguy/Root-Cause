@@ -1,0 +1,52 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "status": {
+      "default": "unknown",
+      "enum": [
+        "attention",
+        "no_flag",
+        "unknown"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "reasons": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Reasons",
+      "type": "array"
+    },
+    "rule_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rule Version"
+    },
+    "observation_id": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Observation Id",
+      "type": "string"
+    },
+    "zone_id": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Zone Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "observation_id",
+    "zone_id"
+  ],
+  "title": "AttentionItem",
+  "type": "object"
+}
