@@ -1,0 +1,7 @@
+{
+  "host": "127.0.0.1",
+  "port": 8000,
+  "ollama_model": "qwen3:4b",
+  "zones": [{"id": "demo-zone", "name": "Demo zone (assigned, not GPS)"}],
+  "experimental_overlays": true
+}

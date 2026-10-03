@@ -1,0 +1,81 @@
+{
+  "health": {
+    "status": "ok",
+    "vision_ready": true,
+    "ollama_ready": true,
+    "capabilities": {
+      "classification": true,
+      "localization": false,
+      "segmentation": false,
+      "experimental_overlays": true,
+      "aerial_disease": false,
+      "cwsi": true,
+      "chat": true
+    }
+  },
+  "results": [
+    {
+      "observation_id": "51e9049d-f4af-47bf-b244-c628293956f0",
+      "result_id": "837c9e22-eac9-4211-8ad7-800c8a52a919",
+      "label": "Healthy Tomato Plant",
+      "score": 0.9999587744122684,
+      "timings_ms": {
+        "queue": 7.023000000117463,
+        "inference": 24.433599999611033,
+        "total": 87.31989999978396
+      },
+      "segmentation_method": "experimental-discoloration-v1-not-disease-segmentation",
+      "capture_time": null
+    },
+    {
+      "observation_id": "054122f4-e190-4d42-b8a8-711bc2cc3a6b",
+      "result_id": "0b340a77-e281-4d04-adf7-bd3b493f7b66",
+      "label": "Tomato with Late Blight",
+      "score": 0.9777411892796254,
+      "timings_ms": {
+        "queue": 6.341700000120909,
+        "inference": 13.82499999999709,
+        "total": 73.68979999955627
+      },
+      "segmentation_method": "experimental-discoloration-v1-not-disease-segmentation",
+      "capture_time": null
+    },
+    {
+      "observation_id": "3db8244e-61d2-4d70-8742-ea09a4bdb9a0",
+      "result_id": "12369544-5e14-4ba3-b127-a5ede0ddbe74",
+      "label": "Potato with Early Blight",
+      "score": 0.980887946813215,
+      "timings_ms": {
+        "queue": 6.925300000148127,
+        "inference": 8.929399999033194,
+        "total": 90.11400000053982
+      },
+      "segmentation_method": "experimental-discoloration-v1-not-disease-segmentation",
+      "capture_time": null
+    }
+  ],
+  "chat": {
+    "conversation_id": "959fb98f-9075-499a-afef-3fae4abf3d57",
+    "answer": "Observation 51e9049d-f4af-47bf-b244-c628293956f0:\nNo sensor measurements were supplied; soil and temperature values are unknown.\nModel prediction: Healthy Tomato Plant. Model score: 99.996% (not diagnostic confidence).\nExperimental discoloration candidate: 0.034% of estimated leaf region; not measured disease severity.\nCWSI: unavailable; required inputs were missing or invalid.\n\nThe stored image result suggests a healthy tomato plant based on the classifier's prediction. Soil temperature and all temperature measurements required for CWSI calculation are missing. CWSI unavailable due to lack of synchronized canopy/air/baseline temperature data.",
+    "evidence": [
+      {
+        "kind": "observation",
+        "id": "51e9049d-f4af-47bf-b244-c628293956f0",
+        "title": "Source observation",
+        "observation_id": "51e9049d-f4af-47bf-b244-c628293956f0",
+        "result_id": null
+      },
+      {
+        "kind": "result",
+        "id": "837c9e22-eac9-4211-8ad7-800c8a52a919",
+        "title": "Stored analysis result",
+        "observation_id": "51e9049d-f4af-47bf-b244-c628293956f0",
+        "result_id": "837c9e22-eac9-4211-8ad7-800c8a52a919"
+      }
+    ],
+    "limitations": [
+      "Explanations are advisory; predictions and experimental outputs require verification"
+    ]
+  },
+  "chat_elapsed_ms": 1816.5758999984973
+}
